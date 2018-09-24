@@ -27,7 +27,7 @@ export default class DirectLinkingStorage extends FeatureStorage {
         browserStorageArea = browser.storage.local,
     }: {
         storageManager: ManageableStorage
-        browserStorageArea: Storage.StorageArea
+        browserStorageArea?: Storage.StorageArea
     }) {
         super(storageManager)
         this._browserStorageArea = browserStorageArea
@@ -133,7 +133,7 @@ export class AnnotationStorage extends FeatureStorage {
         browserStorageArea = browser.storage.local,
     }: {
         storageManager: ManageableStorage
-        browserStorageArea: Storage.StorageArea
+        browserStorageArea?: Storage.StorageArea
     }) {
         super(storageManager)
         this._browserStorageArea = browserStorageArea
@@ -191,13 +191,13 @@ export class AnnotationStorage extends FeatureStorage {
     }
 
     async getAnnotationByPk(url: string) {
-        return this.storageManager.findObject(ANNOTATION_TABLE, {
+        return this.storageManager.findObject<Annotation>(ANNOTATION_TABLE, {
             url,
         })
     }
 
     async getAnnotationsByUrl(pageUrl: string) {
-        return this.storageManager.findAll(ANNOTATION_TABLE, {
+        return this.storageManager.findAll<Annotation>(ANNOTATION_TABLE, {
             pageUrl,
         })
     }
@@ -242,7 +242,7 @@ export class AnnotationStorage extends FeatureStorage {
     }
 
     async editAnnotation(url: string, comment: string) {
-        return this.storageManager.updateObject(
+        return this.storageManager.updateObject<Annotation>(
             ANNOTATION_TABLE,
             { url },
             {
@@ -255,13 +255,13 @@ export class AnnotationStorage extends FeatureStorage {
     }
 
     async deleteAnnotation(url: string) {
-        return this.storageManager.deleteObject(ANNOTATION_TABLE, {
+        return this.storageManager.deleteObject<Annotation>(ANNOTATION_TABLE, {
             url,
         })
     }
 
     async getTagsByAnnotationUrl(url: string) {
-        return this.storageManager.findAll(TAGS_TABLE, {
+        return this.storageManager.findAll<Tag>(TAGS_TABLE, {
             url,
         })
     }
@@ -273,7 +273,7 @@ export class AnnotationStorage extends FeatureStorage {
                 url,
             })
         } else {
-            this.storageManager.deleteObject(TAGS_TABLE, {
+            this.storageManager.deleteObject<Annotation>(TAGS_TABLE, {
                 name,
                 url,
             })
