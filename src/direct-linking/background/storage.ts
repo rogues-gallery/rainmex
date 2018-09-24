@@ -3,7 +3,7 @@ import { browser, Tabs, Storage } from 'webextension-polyfill-ts'
 import { createPageFromTab, Tag } from '../../search'
 import { FeatureStorage, ManageableStorage } from '../../search/storage'
 import { STORAGE_KEYS as IDXING_PREF_KEYS } from '../../options/settings/constants'
-import { Annotation } from '../types'
+import { Annotation, SearchParams } from '../types'
 
 export interface DirectLinkingStorageProps {
     storageManager: ManageableStorage
@@ -207,6 +207,24 @@ export class AnnotationStorage extends FeatureStorage {
     async getAnnotationsByUrl(pageUrl: string) {
         return this.storageManager.findAll<Annotation>(this._annotationsColl, {
             pageUrl,
+        })
+    }
+
+    async search({
+        endDate = Date.now(),
+        startDate = 0,
+        terms = [],
+    }: SearchParams) {
+        return this.storageManager.findAll<Annotation>(this._annotationsColl, {
+            $or: [
+                { _body_terms: { $all: terms } },
+                { _comments_terms: { $all: terms } },
+                { _pageTitle_terms: { $all: terms } },
+            ],
+            createdWhen: {
+                $lte: endDate,
+                $gte: startDate,
+            },
         })
     }
 
