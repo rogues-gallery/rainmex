@@ -82,6 +82,7 @@ export interface IndexDefinition {
      */
     fullTextIndexName?: string
 }
+
 export interface CollectionDefinition {
     version: Date
     indices: IndexDefinition[]

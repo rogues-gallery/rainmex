@@ -3,36 +3,29 @@ import { browser, Tabs, Storage } from 'webextension-polyfill-ts'
 import { createPageFromTab, Tag } from '../../search'
 import { FeatureStorage, ManageableStorage } from '../../search/storage'
 import { STORAGE_KEYS as IDXING_PREF_KEYS } from '../../options/settings/constants'
+import { Annotation } from '../types'
 
-export const DIRECTLINK_TABLE = 'directLinks'
-export const ANNOTATION_TABLE = 'annotations'
-const TAGS_TABLE = 'tags'
-
-export interface Annotation {
-    pageTitle: string
-    pageUrl: string
-    body: string
-    selector: object
-    createdWhen?: Date
-    lastEdited?: Date
-    url?: string
-    comment?: string
+export interface DirectLinkingStorageProps {
+    storageManager: ManageableStorage
+    browserStorageArea?: Storage.StorageArea
+    directLinksColl?: string
 }
 
 export default class DirectLinkingStorage extends FeatureStorage {
+    static DIRECT_LINKS_COLL = 'directLinks'
     private _browserStorageArea: Storage.StorageArea
+    private _directLinksColl: string
 
     constructor({
         storageManager,
         browserStorageArea = browser.storage.local,
-    }: {
-        storageManager: ManageableStorage
-        browserStorageArea?: Storage.StorageArea
-    }) {
+        directLinksColl = DirectLinkingStorage.DIRECT_LINKS_COLL,
+    }: DirectLinkingStorageProps) {
         super(storageManager)
         this._browserStorageArea = browserStorageArea
+        this._directLinksColl = directLinksColl
 
-        this.storageManager.registerCollection(DIRECTLINK_TABLE, [
+        this.storageManager.registerCollection(this._directLinksColl, [
             {
                 version: new Date(2018, 5, 31),
                 fields: {
@@ -91,7 +84,7 @@ export default class DirectLinkingStorage extends FeatureStorage {
         body,
         selector,
     }: Annotation) {
-        await this.storageManager.putObject(DIRECTLINK_TABLE, {
+        await this.storageManager.putObject(this._directLinksColl, {
             pageTitle,
             pageUrl,
             body,
@@ -124,21 +117,33 @@ export default class DirectLinkingStorage extends FeatureStorage {
     }
 }
 
+export interface AnnotationStorageProps {
+    storageManager: ManageableStorage
+    browserStorageArea?: Storage.StorageArea
+    annotationsColl?: string
+    tagsColl?: string
+}
+
 // TODO: Move to src/annotations in the future
 export class AnnotationStorage extends FeatureStorage {
+    static ANNOTS_COLL = 'annotations'
+    static TAGS_COLL = 'tags'
     private _browserStorageArea: Storage.StorageArea
+    private _annotationsColl: string
+    private _tagsColl: string
 
     constructor({
         storageManager,
         browserStorageArea = browser.storage.local,
-    }: {
-        storageManager: ManageableStorage
-        browserStorageArea?: Storage.StorageArea
-    }) {
+        annotationsColl = AnnotationStorage.ANNOTS_COLL,
+        tagsColl = AnnotationStorage.TAGS_COLL,
+    }: AnnotationStorageProps) {
         super(storageManager)
         this._browserStorageArea = browserStorageArea
+        this._annotationsColl = annotationsColl
+        this._tagsColl = tagsColl
 
-        this.storageManager.registerCollection(ANNOTATION_TABLE, {
+        this.storageManager.registerCollection(this._annotationsColl, {
             version: new Date(2018, 7, 26),
             fields: {
                 pageTitle: { type: 'text' },
@@ -191,13 +196,16 @@ export class AnnotationStorage extends FeatureStorage {
     }
 
     async getAnnotationByPk(url: string) {
-        return this.storageManager.findObject<Annotation>(ANNOTATION_TABLE, {
-            url,
-        })
+        return this.storageManager.findObject<Annotation>(
+            this._annotationsColl,
+            {
+                url,
+            },
+        )
     }
 
     async getAnnotationsByUrl(pageUrl: string) {
-        return this.storageManager.findAll<Annotation>(ANNOTATION_TABLE, {
+        return this.storageManager.findAll<Annotation>(this._annotationsColl, {
             pageUrl,
         })
     }
@@ -209,7 +217,7 @@ export class AnnotationStorage extends FeatureStorage {
         body,
         selector,
     }: Annotation) {
-        await this.storageManager.putObject(ANNOTATION_TABLE, {
+        await this.storageManager.putObject(this._annotationsColl, {
             pageTitle,
             pageUrl,
             body,
@@ -229,7 +237,7 @@ export class AnnotationStorage extends FeatureStorage {
         comment,
         selector,
     }: Annotation) {
-        return this.storageManager.putObject(ANNOTATION_TABLE, {
+        return this.storageManager.putObject(this._annotationsColl, {
             pageTitle,
             pageUrl,
             comment,
@@ -243,7 +251,7 @@ export class AnnotationStorage extends FeatureStorage {
 
     async editAnnotation(url: string, comment: string) {
         return this.storageManager.updateObject<Annotation>(
-            ANNOTATION_TABLE,
+            this._annotationsColl,
             { url },
             {
                 $set: {
@@ -255,25 +263,28 @@ export class AnnotationStorage extends FeatureStorage {
     }
 
     async deleteAnnotation(url: string) {
-        return this.storageManager.deleteObject<Annotation>(ANNOTATION_TABLE, {
-            url,
-        })
+        return this.storageManager.deleteObject<Annotation>(
+            this._annotationsColl,
+            {
+                url,
+            },
+        )
     }
 
     async getTagsByAnnotationUrl(url: string) {
-        return this.storageManager.findAll<Tag>(TAGS_TABLE, {
+        return this.storageManager.findAll<Tag>(this._tagsColl, {
             url,
         })
     }
 
     modifyTags = (shouldAdd: boolean) => async (name: string, url: string) => {
         if (shouldAdd) {
-            this.storageManager.putObject(TAGS_TABLE, {
+            this.storageManager.putObject(this._tagsColl, {
                 name,
                 url,
             })
         } else {
-            this.storageManager.deleteObject<Annotation>(TAGS_TABLE, {
+            this.storageManager.deleteObject<Annotation>(this._tagsColl, {
                 name,
                 url,
             })
