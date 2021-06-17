@@ -18,9 +18,9 @@ import {
     defaultState as defOptState,
 } from 'src/options/settings'
 
-const parseBool = str => str === 'true'
-const parseNumber = str => Number(str)
-const stringifyArr = arr => arr.join(',')
+const parseBool = (str) => str === 'true'
+const parseNumber = (str) => Number(str)
+const stringifyArr = (arr) => arr.join(',')
 
 // Keep search query in sync with the query parameter in the window location.
 const locationSync = ReduxQuerySync.enhancer({
@@ -42,6 +42,12 @@ const locationSync = ReduxQuerySync.enhancer({
             selector: filters.onlyBookmarks,
             action: filterActs.toggleBookmarkFilter,
             stringToValue: parseBool,
+            defaultValue: false,
+        },
+        isMobileListFiltered: {
+            selector: filters.isMobileListFiltered,
+            action: filterActs.setMobileListFiltered,
+            valueToString: parseBool,
             defaultValue: false,
         },
         tagsInc: {
@@ -80,10 +86,13 @@ const locationSync = ReduxQuerySync.enhancer({
             valueToString: stringifyArr,
             defaultValue: [],
         },
-        lists: {
-            selector: filters.listFilter,
-            action: filterActs.setListFilters,
-            defaultValue: '',
+        listId: {
+            selector: filters.listIdFilter,
+            action: filterActs.setListIdFilter,
+        },
+        listName: {
+            selector: filters.listNameFilter,
+            action: filterActs.setListNameFilter,
         },
         query: {
             selector: searchBar.query,
@@ -117,14 +126,15 @@ const locationSync = ReduxQuerySync.enhancer({
     },
 })
 
-const hydrateStateFromStorage = store => {
-    const hydrate = (key, action) =>
-        browser.storage.local.get(key).then(data => {
-            if (data[key] == null) {
+const hydrateStateFromStorage = (store) => {
+    const hydrate = (key, action, defaultValue) =>
+        browser.storage.local.get(key).then((data) => {
+            if (data[key] == null && defaultValue == null) {
                 return
             }
 
-            store.dispatch(action(data[key]))
+            const value = data[key] == null ? defaultValue : data[key]
+            store.dispatch(action(value))
         })
 
     // Keep each of these storage keys in sync
@@ -133,7 +143,11 @@ const hydrateStateFromStorage = store => {
         constants.ANNOTATIONS_EXPANDED_KEY,
         resultsActs.setAreAnnotationsExpanded,
     )
-    hydrate(constants.SIDEBAR_LOCKED_KEY, sidebarLeftActs.setSidebarLocked)
+    hydrate(
+        constants.SIDEBAR_LOCKED_KEY,
+        sidebarLeftActs.setSidebarLocked,
+        true,
+    )
     hydrate(
         optConsts.STORAGE_KEYS.SCREENSHOTS,
         optActs.initScreenshots,
@@ -141,7 +155,7 @@ const hydrateStateFromStorage = store => {
     )
 }
 
-const syncStateToStorage = store =>
+const syncStateToStorage = (store) =>
     store.subscribe(() => {
         const dump = (key, data) => browser.storage.local.set({ [key]: data })
 
@@ -155,7 +169,7 @@ const syncStateToStorage = store =>
         dump(constants.SIDEBAR_LOCKED_KEY, sidebarLeft.sidebarLocked(state))
     })
 
-const storageSync = storeCreator => (reducer, initState, enhancer) => {
+const storageSync = (storeCreator) => (reducer, initState, enhancer) => {
     const store = storeCreator(reducer, initState, enhancer)
 
     // Subscribe to changes and update local storage
@@ -167,9 +181,6 @@ const storageSync = storeCreator => (reducer, initState, enhancer) => {
     return store
 }
 
-const enhancer = compose(
-    locationSync,
-    storageSync,
-)
+const enhancer = compose(locationSync, storageSync)
 
 export default enhancer

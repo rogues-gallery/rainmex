@@ -1,57 +1,35 @@
-import Countly from 'countly-sdk-web'
-import AnalyticsManager from './analytics'
-import { AnalyticsEvent, Analytics, AnalyticsTrackEventOptions } from './types'
-import CountlyAnalyticsBackend from './backend/countly'
+// import Countly from 'countly-sdk-web'
 
-const createBackend = () =>
-    new CountlyAnalyticsBackend({
-        url: process.env.COUNTLY_HOST,
-        appKey: process.env.COUNTLY_APP_KEY,
-        countlyConnector: Countly,
-    })
-let realBackend = null
-const backend = new Proxy(
-    {},
-    {
-        get: (target, key) => {
-            if (!realBackend) {
-                realBackend = createBackend()
-            }
-            return realBackend[key]
-        },
-    },
-) as Analytics
-const analytics: Analytics = new AnalyticsManager({ backend })
+// import AnalyticsManager from './analytics'
+// import CountlyAnalyticsBackend from './backend/countly'
+import { FakeAnalytics } from './mock'
+import type { Analytics } from './types'
+// import { generateUserId, shouldTrack } from './utils'
 
-export class FakeAnalytics implements Analytics {
-    events: Array<{
-        eventArgs: AnalyticsEvent
-        options: AnalyticsTrackEventOptions
-    }>
-    newEvents: Array<{
-        eventArgs: AnalyticsEvent
-        options: AnalyticsTrackEventOptions
-    }>
+const appKey = process.env.COUNTLY_APP_KEY
+const url = process.env.COUNTLY_SERVER_URL
 
-    constructor() {
-        this.reset()
-    }
+let analytics: Analytics
 
-    reset() {
-        this.events = []
-        this.newEvents = []
-    }
-
-    async trackEvent(eventArgs, options?: AnalyticsTrackEventOptions) {
-        this.events.push({ eventArgs, options })
-        this.newEvents.push({ eventArgs, options })
-    }
-
-    popNew() {
-        const newEvents = this.newEvents
-        this.newEvents = []
-        return newEvents
-    }
-}
+// if (
+//     !appKey ||
+//     !url ||
+//     (process.env.NODE_ENV === 'development' &&
+//         process.env.DEV_ANALYTICS !== 'true')
+// ) {
+analytics = new FakeAnalytics()
+// } else {
+//     analytics = new AnalyticsManager({
+//         shouldTrack: (def) => shouldTrack(def),
+//         backend: new CountlyAnalyticsBackend({
+//             fetchUserId: () => generateUserId({}),
+//             countlyConnector: Countly,
+//             appKey,
+//             url,
+//         }),
+//     })
+// }
 
 export default analytics
+
+export { Analytics }

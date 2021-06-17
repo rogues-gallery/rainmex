@@ -1,11 +1,11 @@
 import { createAction } from 'redux-act'
+import { HASH_TAG_PATTERN } from '@worldbrain/memex-common/lib/storage/constants'
 
 import { remoteFunction } from '../../util/webextensionRPC'
 import analytics from '../../analytics'
 import { Thunk } from '../../options/types'
 import * as constants from './constants'
 import * as selectors from './selectors'
-import { actions as sidebarActs } from 'src/sidebar-overlay/sidebar'
 import { acts as resultsActs, selectors as results } from '../results'
 import {
     actions as filterActs,
@@ -13,6 +13,10 @@ import {
 } from '../../search-filters'
 import { actions as notifActs } from '../../notifications'
 import { EVENT_NAMES } from '../../analytics/internal/constants'
+import * as Raven from 'src/util/raven'
+import { auth, featuresBeta } from 'src/util/remote-functions-background'
+import { stripTagPattern, splitInputIntoTerms } from './utils'
+import { BackgroundSearchParams } from 'src/search/background/types'
 
 const processEventRPC = remoteFunction('processEvent')
 const pageSearchRPC = remoteFunction('searchPages')
@@ -26,49 +30,52 @@ export const setStartDateText = createAction<string>('header/setStartDateText')
 export const setEndDateText = createAction<string>('header/setEndDateText')
 export const clearFilters = createAction('header/clearFilters')
 
-const stripTagPattern = tag =>
-    tag
-        .slice(1)
-        .split('+')
-        .join(' ')
-
 export const setQueryTagsDomains: (
     input: string,
     isEnter?: boolean,
-) => Thunk = (input, isEnter = true) => dispatch => {
-    const removeFromInputVal = term =>
-        (input = input.replace(isEnter ? term : `${term} `, ''))
+) => Thunk = (input, isEnter = true) => (dispatch, getState) => {
+    const state = getState()
 
     if (input[input.length - 1] === ' ' || isEnter) {
-        // Split input into terms and try to extract any tag/domain patterns to add to filters
-        const terms = input.toLowerCase().match(/\S+/g) || []
+        const terms = splitInputIntoTerms(input)
 
-        terms.forEach(term => {
-            // If '#tag' pattern in input, remove it and add to filter state
-            if (constants.HASH_TAG_PATTERN.test(term)) {
-                removeFromInputVal(term)
+        terms.forEach((term) => {
+            // If '#tag' pattern in input, and not already tracked, add to filter state
+            if (
+                HASH_TAG_PATTERN.test(term) &&
+                !filters.tags(state).includes(stripTagPattern(term))
+            ) {
                 dispatch(filterActs.toggleTagFilter(stripTagPattern(term)))
                 analytics.trackEvent({
-                    category: 'Tag',
-                    action: 'Filter by Tag',
+                    category: 'SearchFilters',
+                    action: 'addTagFilterViaQuery',
                 })
             }
 
-            // If 'domain.tld.cctld?' pattern in input, remove it and add to filter state
+            // If 'domain.tld.cctld?' pattern in input, and not already tracked, add to filter state
             if (constants.DOMAIN_TLD_PATTERN.test(term)) {
-                removeFromInputVal(term)
+                let act
+                let currentState
 
                 // Choose to exclude or include domain, basead on pattern
-                const act = constants.EXCLUDE_PATTERN.test(term)
-                    ? filterActs.toggleExcDomainFilter
-                    : filterActs.toggleIncDomainFilter
+                if (constants.EXCLUDE_PATTERN.test(term)) {
+                    currentState = filters.domainsExc(state)
+                    act = filterActs.toggleExcDomainFilter
+                } else {
+                    currentState = filters.domainsInc(state)
+                    act = filterActs.toggleIncDomainFilter
+                }
 
                 term = term.replace(constants.TERM_CLEAN_PATTERN, '')
+                if (currentState.includes(term)) {
+                    return
+                }
+
                 dispatch(act(term))
 
                 analytics.trackEvent({
-                    category: 'Domain',
-                    action: 'Filter by Domain',
+                    category: 'SearchFilters',
+                    action: 'addDomainFilterViaQuery',
                 })
             }
         })
@@ -97,16 +104,6 @@ export const search: (args?: any) => Thunk = (
     const startDate = selectors.startDate(firstState)
     const endDate = selectors.endDate(firstState)
 
-    // const showTooltip = selectors.showTooltip(firstState)
-
-    if (query.includes('#')) {
-        return
-    }
-
-    if (fromOverview) {
-        dispatch(sidebarActs.closeSidebar())
-    }
-
     dispatch(resultsActs.resetActiveSidebarIndex())
     dispatch(resultsActs.setLoading(true))
 
@@ -125,9 +122,8 @@ export const search: (args?: any) => Thunk = (
     }
 
     // Grab needed derived state for search
-
     const state = getState()
-    const searchParams = {
+    const searchParams: BackgroundSearchParams = {
         query,
         startDate,
         endDate,
@@ -151,8 +147,8 @@ export const search: (args?: any) => Thunk = (
         const searchRPC = results.isSocialPost(state)
             ? socialSearchRPC
             : results.isAnnotsSearch(state)
-                ? annotSearchRPC
-                : pageSearchRPC
+            ? annotSearchRPC
+            : pageSearchRPC
 
         // Tell background script to search
         const searchResult = await searchRPC(searchParams)
@@ -163,10 +159,19 @@ export const search: (args?: any) => Thunk = (
         }
     } catch (error) {
         console.error(`Search for '${query}' errored: ${error.toString()}`)
+        Raven.captureException(error)
         dispatch(resultsActs.setLoading(false))
     }
 }
 
-export const init = () => dispatch => {
+export const init = () => (dispatch) => {
     dispatch(notifActs.updateUnreadNotif())
+    dispatch(search({ overwrite: true, fromOverview: false }))
+
+    const getFeatures = async () => {
+        if (await auth.isAuthorizedForFeature('beta')) {
+            dispatch(resultsActs.setBetaFeatures(true))
+        }
+    }
+    getFeatures()
 }

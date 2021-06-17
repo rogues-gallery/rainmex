@@ -4,20 +4,32 @@ import PropTypes from 'prop-types'
 import { bindActionCreators } from 'redux'
 import cx from 'classnames'
 
+import analytics from 'src/analytics'
 import { actions, selectors } from 'src/custom-lists'
 import extStyles from './Index.css'
-import MyCollection from './my-collections'
 import CreateListForm from './CreateListForm'
 import ListItem from './list-item'
 import DeleteConfirmModal from 'src/overview/delete-confirm-modal/components/DeleteConfirmModal'
-import { actions as filterActs } from 'src/search-filters'
+import { actions as filterActs, selectors as filters } from 'src/search-filters'
 import { selectors as sidebar } from 'src/overview/sidebar-left'
+import { auth, contentSharing } from 'src/util/remote-functions-background'
+import { StaticListItem } from './static-list-item'
+import { show } from 'src/overview/modals/actions'
+import { SPECIAL_LIST_NAMES } from '@worldbrain/memex-storage/lib/lists/constants'
+import FeedActivityIndicator from 'src/activity-indicator/ui'
+
+const styles = require('./Index.css')
 
 class ListContainer extends Component {
     static propTypes = {
         getListFromDB: PropTypes.func.isRequired,
+        inboxUnreadCount: PropTypes.number.isRequired,
+        getInboxUnreadCount: PropTypes.func.isRequired,
         lists: PropTypes.array.isRequired,
+        specialLists: PropTypes.array.isRequired,
         handleEditBtnClick: PropTypes.func.isRequired,
+        handleAllSavedClick: PropTypes.func.isRequired,
+        isListFilterActive: PropTypes.bool.isRequired,
         isDeleteConfShown: PropTypes.bool.isRequired,
         resetListDeleteModal: PropTypes.func.isRequired,
         handleCrossBtnClick: PropTypes.func.isRequired,
@@ -28,6 +40,7 @@ class ListContainer extends Component {
         handleDeleteList: PropTypes.func.isRequired,
         toggleCreateListForm: PropTypes.func.isRequired,
         showCreateList: PropTypes.bool.isRequired,
+        showListShareModal: PropTypes.func.isRequired,
         showCommonNameWarning: PropTypes.bool.isRequired,
         isSidebarOpen: PropTypes.bool.isRequired,
         isSidebarLocked: PropTypes.bool.isRequired,
@@ -37,34 +50,53 @@ class ListContainer extends Component {
 
     constructor(props) {
         super(props)
+
         this.state = {
             listName: null,
             updatedListName: null,
             showWarning: false,
+            isPioneer: false,
+            displayName: null,
+            shareAccess: false,
         }
     }
 
     async componentDidMount() {
+        this.props.getInboxUnreadCount()
+
         // Gets all the list from the DB to populate the sidebar.
         this.props.getListFromDB()
+
+        this.getUserInfo()
     }
 
-    setInputRef = el => (this.inputEl = el)
+    async getUserInfo() {
+        // const isPioneer = await auth.isAuthorizedForFeature('beta')
+        // const userProfile = await auth.getUserProfile()
+        // const displayName = userProfile ? userProfile.displayName : undefined
 
-    handleSearchChange = field => event => {
+        this.setState({
+            isPioneer: true, // TODO: use isPioneer declared above
+            displayName: 'John Smith', // TODO: use displayName declared above
+        })
+    }
+
+    setInputRef = (el) => (this.inputEl = el)
+
+    handleSearchChange = (field) => (event) => {
         const { value } = event.target
 
-        this.setState(state => ({
+        this.setState((state) => ({
             ...state,
             [field]: value,
         }))
     }
 
-    getSearchVal = value => value.trim().replace(/\s\s+/g, ' ')
+    getSearchVal = (value) => value.trim().replace(/\s\s+/g, ' ')
 
-    handleCreateListSubmit = event => {
+    handleCreateListSubmit = (event) => {
         event.preventDefault()
-        const { value } = event.target.elements['listName']
+        const { value } = event.target.elements.listName
         // value = list name
         this.props.createPageList(
             this.getSearchVal(value),
@@ -73,21 +105,38 @@ class ListContainer extends Component {
     }
 
     vacateInputField = () => {
-        this.setState(state => ({
+        this.setState((state) => ({
             ...state,
             listName: null,
         }))
     }
 
-    handleUpdateList = ({ id }, index) => event => {
+    handleUpdateList = ({ id, name: oldName }, index) => (event) => {
         event.preventDefault()
-        const { value } = event.target.elements['listName']
-        // value = list name
-        this.props.updateList(index, this.getSearchVal(value), id)
-        this.setState(state => ({
+        const { value } = event.target.elements.listName
+        const newName = this.getSearchVal(value)
+
+        this.props.updateList([oldName, newName], id)
+
+        this.setState((state) => ({
             ...state,
             updatedListName: null,
         }))
+    }
+
+    handleShareButtonClick = (i) => () => {
+        return this.props.showListShareModal({ list: this.props.lists[i] })
+    }
+
+    handleStaticListItemClick = (list) => () => {
+        if (list.name === SPECIAL_LIST_NAMES.INBOX) {
+            analytics.trackEvent({
+                category: 'Inbox',
+                action: 'filterByInbox',
+            })
+        }
+
+        this.props.handleListItemClick(list)()
     }
 
     renderAllLists = () => {
@@ -113,10 +162,12 @@ class ListContainer extends Component {
             return (
                 <ListItem
                     key={i}
+                    listId={list.id}
                     listName={list.name}
                     isFiltered={list.isFilterIndex}
+                    onShareButtonClick={this.handleShareButtonClick(i)}
                     onEditButtonClick={this.props.handleEditBtnClick(i)}
-                    onListItemClick={this.props.handleListItemClick(list, i)}
+                    onListItemClick={this.props.handleListItemClick(list)}
                     onAddPageToList={this.props.handleAddPageList(list, i)}
                     onCrossButtonClick={this.props.handleCrossBtnClick(list, i)}
                     resetUrlDragged={this.props.resetUrlDragged}
@@ -124,6 +175,40 @@ class ListContainer extends Component {
             )
         })
     }
+
+    whichFeed = () => {
+        if (process.env.NODE_ENV === 'production') {
+            return 'https://memex.social/feed'
+        } else {
+            return 'https://staging.memex.social/feed'
+        }
+    }
+
+    renderSpecialLists = () => [
+        <StaticListItem
+            key="all-saved-list"
+            listName="All Saved"
+            isFiltered={!this.props.isListFilterActive}
+            onListItemClick={this.props.handleAllSavedClick}
+        />,
+        ...this.props.specialLists.map((list, i) => (
+            <StaticListItem
+                key={i}
+                listName={list.name}
+                isFiltered={list.isFilterIndex}
+                onListItemClick={this.handleStaticListItemClick(list)}
+                unreadCount={
+                    list.name === SPECIAL_LIST_NAMES.INBOX
+                        ? this.props.inboxUnreadCount
+                        : undefined
+                }
+            />
+        )),
+        <FeedActivityIndicator
+            key="activity-feed-indicator"
+            openFeedUrl={() => window.open(this.whichFeed(), '_blank')}
+        />,
+    ]
 
     renderCreateList = (shouldDisplayForm, value = null) =>
         shouldDisplayForm && (
@@ -140,9 +225,22 @@ class ListContainer extends Component {
     render() {
         return (
             <React.Fragment>
-                <MyCollection
-                    handleRenderCreateList={this.props.toggleCreateListForm}
-                />
+                {this.renderSpecialLists()}
+                <div
+                    className={styles.collection}
+                    onClick={this.props.toggleCreateListForm}
+                >
+                    <div
+                        className={cx(styles.addNew, {
+                            [styles.addNewHover]: this.props.isSidebarLocked,
+                        })}
+                    >
+                        <span className={styles.myCollection}>
+                            My Collections{' '}
+                        </span>
+                        <span className={styles.plus} />
+                    </div>
+                </div>
 
                 {this.renderCreateList(this.props.showCreateList)}
                 <div
@@ -159,7 +257,21 @@ class ListContainer extends Component {
                                 .isSidebarLocked,
                         })}
                     >
-                        {this.renderAllLists()}
+                        {this.props.lists.length === 0 ? (
+                            <div>
+                                {this.renderAllLists()}
+                                <div className={extStyles.noLists}>
+                                    <strong>
+                                        You don't have any collections{' '}
+                                    </strong>
+                                    <br />
+                                    Create one with the + icon and drag and drop
+                                    items into it.
+                                </div>
+                            </div>
+                        ) : (
+                            <div>{this.renderAllLists()}</div>
+                        )}
                     </div>
                 </div>
                 <DeleteConfirmModal
@@ -173,16 +285,21 @@ class ListContainer extends Component {
     }
 }
 
-const mapStateToProps = state => ({
-    lists: selectors.results(state),
+const mapStateToProps = (state) => ({
+    lists: selectors.createdDisplayLists(state),
+    specialLists: selectors.specialDisplayLists(state),
     isDeleteConfShown: selectors.isDeleteConfShown(state),
+    shareModalProps: selectors.shareModalProps(state),
     showCreateList: selectors.showCreateListForm(state),
     showCommonNameWarning: selectors.showCommonNameWarning(state),
     isSidebarOpen: sidebar.isSidebarOpen(state),
     isSidebarLocked: sidebar.sidebarLocked(state),
+    isListFilterActive: filters.listFilterActive(state),
+    lstFilter: filters.listIdFilter(state),
+    inboxUnreadCount: selectors.inboxUnreadCount(state),
 })
 
-const mapDispatchToProps = (dispatch, getState) => ({
+const mapDispatchToProps = (dispatch, ownProps) => ({
     ...bindActionCreators(
         {
             resetListDeleteModal: actions.resetListDeleteModal,
@@ -195,29 +312,48 @@ const mapDispatchToProps = (dispatch, getState) => ({
         },
         dispatch,
     ),
-    handleEditBtnClick: index => event => {
+    getInboxUnreadCount: () => dispatch(actions.getInboxUnreadCount()),
+    handleEditBtnClick: (index) => (event) => {
         event.preventDefault()
         dispatch(actions.showEditBox(index))
     },
-    handleCrossBtnClick: ({ id }, index) => event => {
+    handleCrossBtnClick: ({ id }, index) => (event) => {
         event.preventDefault()
         dispatch(actions.showListDeleteModal(id, index))
     },
-    handleListItemClick: ({ id }, index) => () => {
-        dispatch(actions.toggleListFilterIndex(index))
-        dispatch(filterActs.toggleListFilter(id))
+    handleListItemClick: ({ id, name, isMobileList }) => () => {
+        dispatch(
+            filterActs.toggleListFilter({
+                id,
+                name,
+                isMobileListFiltered: isMobileList,
+            }),
+        )
     },
-    handleAddPageList: ({ id }, index) => (url, isSocialPost) => {
-        dispatch(actions.addUrltoList(url, isSocialPost, index, id))
+    handleAddPageList: ({ id, isMobileList }, index) => (url, isSocialPost) => {
+        if (!isMobileList) {
+            dispatch(actions.addUrltoList(url, isSocialPost, index, id))
+        }
     },
-    handleDeleteList: e => {
+    handleAllSavedClick: () => dispatch(filterActs.delListFilter()),
+    handleDeleteList: (e) => {
         e.preventDefault()
         dispatch(actions.deletePageList())
         dispatch(filterActs.delListFilter())
     },
+    showListShareModal: ({ list }) =>
+        dispatch(
+            show({
+                modalId: 'ShareListModal',
+                options: {
+                    list,
+                    auth: auth,
+                    contentSharing: contentSharing,
+                    isPioneer: true,
+                    isShown: true,
+                },
+            }),
+        ),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(ListContainer)
+export default connect(mapStateToProps, mapDispatchToProps)(ListContainer)

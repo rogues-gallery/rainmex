@@ -1,9 +1,10 @@
 import { StorageBackendPlugin } from '@worldbrain/storex'
 import { DexieStorageBackend } from '@worldbrain/storex-backend-dexie'
 
-import { Page } from 'src/search'
+import { Page } from 'src/search/models'
 import { reshapePageForDisplay } from './utils'
 import { AnnotPage } from './types'
+import { Annotation } from 'src/annotations/types'
 import { User, SocialPage } from 'src/social-integration/types'
 import { USERS_COLL, BMS_COLL } from 'src/social-integration/constants'
 import {
@@ -56,6 +57,14 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
             .limit(pageUrls.length)
             .toArray()
 
+        const bookmarks = new Set<string>()
+        await this.backend.dexieInstance
+            .table('bookmarks')
+            .where('url')
+            .anyOf(pageUrls)
+            .limit(pageUrls.length)
+            .each((bm) => bookmarks.add(bm.url))
+
         for (const page of pages) {
             const screenshot = page.screenshot
                 ? await this.encodeImage(page.screenshot, base64Img)
@@ -64,7 +73,7 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
             pageMap.set(page.url, {
                 ...page,
                 screenshot,
-                hasBookmark: false, // Set later, if needed
+                hasBookmark: bookmarks.has(page.url),
             })
         }
     }
@@ -111,6 +120,32 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
         }
     }
 
+    private async lookupLists(
+        pageUrls: string[],
+        listMap: Map<string, string[]>,
+    ) {
+        const listEntries = (await this.backend.dexieInstance
+            .table('pageListEntries')
+            .where('pageUrl')
+            .anyOf(pageUrls)
+            .primaryKeys()) as Array<[number, string]>
+
+        const listIds = new Set(listEntries.map(([listId]) => listId))
+        const nameLookupById = new Map<number, string>()
+
+        await this.backend.dexieInstance
+            .table('customLists')
+            .where('id')
+            .anyOf([...listIds])
+            .each(({ id, name }) => nameLookupById.set(id, name))
+
+        for (const [listId, url] of listEntries) {
+            const current = listMap.get(url) ?? []
+            const listName = nameLookupById.get(listId)
+            listMap.set(url, [...current, listName])
+        }
+    }
+
     private async lookupTags(
         pageUrls: string[],
         tagMap: Map<number | string, string[]>,
@@ -122,7 +157,8 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
             .anyOf(pageUrls)
             .primaryKeys()
 
-        tags.forEach(([name, url]) => {
+        tags.forEach((pk) => {
+            const [name, url] = pk as [string, string]
             let key: number | string
 
             if (isSocialSearch) {
@@ -163,7 +199,7 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
             .anyOf(pageUrls)
             .keys()) as string[]
 
-        annotUrls.forEach(url => {
+        annotUrls.forEach((url) => {
             let key: number | string
 
             if (isSocialSearch) {
@@ -175,6 +211,35 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
 
             const count = countMap.get(key) || 0
             countMap.set(key, count + 1)
+        })
+    }
+
+    private async lookupAnnots(
+        pageUrls: string[],
+        annotMap: Map<string, Annotation[]>,
+    ) {
+        const annotTagMap = new Map<string, string[]>()
+        const annots = (await this.backend.dexieInstance
+            .table('annotations')
+            .where('pageUrl')
+            .anyOf(pageUrls)
+            .toArray()) as Annotation[]
+
+        await this.backend.dexieInstance
+            .table('tags')
+            .where('url')
+            .anyOf(annots.map((annot) => annot.url))
+            .eachPrimaryKey(([name, url]: [string, string]) => {
+                const prev = annotTagMap.get(url) ?? []
+                annotTagMap.set(url, [...prev, name])
+            })
+
+        annots.forEach((annot) => {
+            const prev = annotMap.get(annot.pageUrl) ?? []
+            annotMap.set(annot.pageUrl, [
+                ...prev,
+                { ...annot, tags: annotTagMap.get(annot.url) ?? [] },
+            ])
         })
     }
 
@@ -258,18 +323,20 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
         const favIconMap = new Map<string, string>()
         const pageMap = new Map<string, Page>()
         const tagMap = new Map<string, string[]>()
-        const countMap = new Map<string, number>()
+        const listMap = new Map<string, string[]>()
+        const annotMap = new Map<string, Annotation[]>()
         const timeMap = new Map<string, number>()
 
         // Run the first set of queries to get display data
         await Promise.all([
             this.lookupPages(pageUrls, pageMap, base64Img),
             this.lookupTags(pageUrls, tagMap),
-            this.lookupAnnotsCounts(pageUrls, countMap),
+            this.lookupLists(pageUrls, listMap),
+            this.lookupAnnots(pageUrls, annotMap),
         ])
 
         const hostnames = new Set(
-            [...pageMap.values()].map(page => page.hostname),
+            [...pageMap.values()].map((page) => page.hostname),
         )
 
         // Run the subsequent set of queries that depend on earlier results
@@ -298,14 +365,16 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
                 return {
                     ...page,
                     favIcon: favIconMap.get(page.hostname),
-                    tags: tagMap.get(url) || [],
-                    annotsCount: countMap.get(url),
+                    tags: tagMap.get(url) ?? [],
+                    lists: listMap.get(url) ?? [],
+                    annotations: annotMap.get(url) ?? [],
+                    annotsCount: annotMap.get(url)?.length,
                     displayTime: latestTimes
                         ? latestTimes[i]
                         : timeMap.get(url),
                 }
             })
-            .filter(page => page != null)
+            .filter((page) => page != null)
             .map(reshapePageForDisplay)
     }
 
@@ -326,7 +395,7 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
         const tagMap = new Map<number, string[]>()
         const userMap = new Map<number, User>()
 
-        const postUrlIds = postIds.map(postId => {
+        const postUrlIds = postIds.map((postId) => {
             const { url } = buildPostUrlId({ postId })
             return url
         })
@@ -338,7 +407,7 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
         ])
 
         const userIds = new Set(
-            [...socialMap.values()].map(page => page.userId),
+            [...socialMap.values()].map((page) => page.userId),
         )
 
         await Promise.all([
@@ -374,6 +443,6 @@ export class PageUrlMapperPlugin extends StorageBackendPlugin<
                     url,
                 }
             })
-            .filter(page => page !== null)
+            .filter((page) => page !== null)
     }
 }

@@ -10,11 +10,21 @@ import { selectors as searchBar, acts as searchBarActs } from '../search-bar'
 import { selectors as filters } from '../../search-filters'
 import { EVENT_NAMES } from '../../analytics/internal/constants'
 import { handleDBQuotaErrors } from 'src/util/error-handler'
-import { bookmarks, notifications } from 'src/util/remote-functions-background'
+import {
+    auth,
+    bookmarks,
+    collections,
+    notifications,
+    contentSharing,
+} from 'src/util/remote-functions-background'
+import * as modalActions from 'src/overview/modals/actions'
 
 const processEventRPC = remoteFunction('processEvent')
 const createSocialBookmarkRPC = remoteFunction('addSocialBookmark')
 const deleteSocialBookmarkRPC = remoteFunction('delSocialBookmark')
+
+export const setBetaFeatures = createAction<boolean>('beta/setBeta')
+export const setOptInFeatures = createAction<boolean>('feature/set')
 
 export const addTag = createAction('results/localAddTag', (tag, index) => ({
     tag,
@@ -25,6 +35,20 @@ export const delTag = createAction('results/localDelTag', (tag, index) => ({
     tag,
     index,
 }))
+
+export const addList = createAction('results/localAddList', (list, index) => ({
+    list,
+    index,
+}))
+
+export const delList = createAction('results/localDelList', (list, index) => ({
+    list,
+    index,
+}))
+
+export const setShowOnboardingMessage = createAction<boolean>(
+    'results/setShowOnboardingMessage',
+)
 
 export const hideResultItem = createAction<string>('results/hideResultItem')
 export const changeHasBookmark = createAction<number>(
@@ -44,6 +68,10 @@ export const setAreAnnotationsExpanded = createAction<boolean>(
 export const toggleAreAnnotationsExpanded = createAction(
     'results/toggleAreAnnotationsExpanded',
 )
+export const resetActiveListIndex = createAction('results/resetActiveListIndex')
+export const setActiveListIndex = createAction<number>(
+    'results/setActiveListIndex',
+)
 export const resetActiveTagIndex = createAction('results/resetActiveTagIndex')
 export const setActiveTagIndex = createAction<number>(
     'results/setActiveTagIndex',
@@ -54,6 +82,12 @@ export const resetActiveSidebarIndex = createAction(
 export const setActiveSidebarIndex = createAction<number>(
     'results/setActiveSidebarIndex',
 )
+export const resetActiveCopyPasterIndex = createAction(
+    'results/resetActiveCopyPasterIndex',
+)
+export const setActiveCopyPasterIndex = createAction<number>(
+    'results/setActiveCopyPasterIndex',
+)
 export const nextPage = createAction('results/nextPage')
 export const resetPage = createAction('results/resetPage')
 export const setSearchType = createAction<'page' | 'notes' | 'social'>(
@@ -62,20 +96,43 @@ export const setSearchType = createAction<'page' | 'notes' | 'social'>(
 export const initSearchCount = createAction('overview/initSearchCount')
 export const incSearchCount = createAction('overview/incSearchCount')
 
-export const toggleBookmark: (url: string, i: number) => Thunk = (
-    url,
-    index,
-) => async (dispatch, getState) => {
+export const updateListName = createAction<[string, string]>(
+    'overview/updateListName',
+)
+
+export const toggleResultCopyPaster = createAction(
+    'overview/toggleResultCopyPaster',
+)
+export const setResultCopyPasterShown = createAction<boolean>(
+    'overview/setResultCopyPasterShown',
+)
+
+export const clickShareList: () => Thunk = () => async (dispatch, getState) => {
+    const listId = filters.listIdFilter(getState())
+    const list = await collections.fetchListById({ id: +listId })
+
+    dispatch(
+        modalActions.show({
+            modalId: 'ShareListModal',
+            options: {
+                list,
+                auth,
+                contentSharing,
+                isPioneer: true,
+                isShown: true,
+            },
+        }),
+    )
+}
+
+export const toggleBookmark: (args: {
+    url: string
+    fullUrl: string
+    index: number
+}) => Thunk = ({ url, fullUrl, index }) => async (dispatch, getState) => {
     const results = selectors.results(getState())
     const { hasBookmark, user } = results[index]
     dispatch(changeHasBookmark(index))
-
-    analytics.trackEvent({
-        category: 'Overview',
-        action: hasBookmark
-            ? 'Remove result bookmark'
-            : 'Create result bookmark',
-    })
 
     processEventRPC({
         type: hasBookmark
@@ -83,7 +140,7 @@ export const toggleBookmark: (url: string, i: number) => Thunk = (
             : EVENT_NAMES.CREATE_RESULT_BOOKMARK,
     })
 
-    let bookmarkRPC: (args: { url: string }) => Promise<void>
+    let bookmarkRPC: (args: { url: string; fullUrl: string }) => Promise<void>
     // tslint:disable-next-line: prefer-conditional-expression
     if (hasBookmark) {
         bookmarkRPC = user ? deleteSocialBookmarkRPC : bookmarks.delPageBookmark
@@ -92,12 +149,12 @@ export const toggleBookmark: (url: string, i: number) => Thunk = (
     }
 
     try {
-        await bookmarkRPC({ url })
+        await bookmarkRPC({ url, fullUrl })
     } catch (err) {
         dispatch(changeHasBookmark(index))
         handleDBQuotaErrors(
-            error =>
-                notifications.createNotification({
+            (error) =>
+                notifications.create({
                     requireInteraction: false,
                     title: 'Memex error: starring page',
                     message: error.message,
@@ -121,7 +178,7 @@ export const updateSearchResult: (a: any) => Thunk = ({
 }
 
 // Egg
-export const easter: () => Thunk = () => dispatch =>
+export const easter: () => Thunk = () => (dispatch) =>
     dispatch(
         updateSearchResult({
             overwrite: true,
@@ -142,13 +199,51 @@ export const easter: () => Thunk = () => dispatch =>
         }),
     )
 
-export const showTags: (i: number) => Thunk = index => (dispatch, getState) => {
+export const toggleShowTagsPicker: (i: number) => Thunk = (index) => (
+    dispatch,
+    getState,
+) => {
     const activeTagIndex = selectors.activeTagIndex(getState())
 
     if (activeTagIndex === index) {
         dispatch(resetActiveTagIndex())
     } else {
+        dispatch(resetActiveListIndex())
+        dispatch(resetActiveCopyPasterIndex())
+
         dispatch(setActiveTagIndex(index))
+    }
+}
+
+export const toggleShowListsPicker: (i: number) => Thunk = (index) => (
+    dispatch,
+    getState,
+) => {
+    const activeListIndex = selectors.activeListIndex(getState())
+
+    if (activeListIndex === index) {
+        dispatch(resetActiveListIndex())
+    } else {
+        dispatch(resetActiveTagIndex())
+        dispatch(resetActiveCopyPasterIndex())
+
+        dispatch(setActiveListIndex(index))
+    }
+}
+
+export const toggleShowCopyPaster: (i: number) => Thunk = (index) => (
+    dispatch,
+    getState,
+) => {
+    const activeCopyPasterIndex = selectors.activeCopyPasterIndex(getState())
+
+    if (activeCopyPasterIndex === index) {
+        dispatch(resetActiveCopyPasterIndex())
+    } else {
+        dispatch(resetActiveTagIndex())
+        dispatch(resetActiveListIndex())
+
+        dispatch(setActiveCopyPasterIndex(index))
     }
 }
 
@@ -157,29 +252,26 @@ export const showTags: (i: number) => Thunk = index => (dispatch, getState) => {
  */
 export const getMoreResults: (fromOverview?: boolean) => Thunk = (
     fromOverview = true,
-) => dispatch => {
+) => (dispatch) => {
     dispatch(nextPage())
     dispatch(searchBarActs.search({ fromOverview }))
 }
 
 // Analytics use
 function trackSearch(searchResult, overwrite, state) {
-    // Value should be set as # results (if non-default search)
-    const value =
-        overwrite && !searchBar.isEmptyQuery(state)
-            ? searchResult.totalCount
-            : undefined
-
-    let action =
-        searchResult.totalCount > 0
-            ? overwrite
-                ? 'Successful search'
-                : 'Paginate search'
-            : 'Unsuccessful search'
-
-    if (filters.onlyBookmarks(state)) {
-        action += ' (BM only)'
+    if (searchBar.isEmptyQuery(state)) {
+        return
     }
+
+    // Value should be set as # results (if non-default search)
+    const value = overwrite ? searchResult.totalCount : undefined
+
+    const action =
+        searchResult.docs.length > 0
+            ? overwrite
+                ? 'successViaOverview'
+                : 'paginateSearch'
+            : 'failViaOverview'
 
     const name = overwrite
         ? searchBar.queryParamsDisplay(state)
@@ -194,8 +286,8 @@ function storeSearch(searchResult, overwrite, state) {
         searchResult.totalCount === 0
             ? EVENT_NAMES.UNSUCCESSFUL_SEARCH
             : overwrite
-                ? EVENT_NAMES.SUCCESSFUL_SEARCH
-                : EVENT_NAMES.PAGINATE_SEARCH
+            ? EVENT_NAMES.SUCCESSFUL_SEARCH
+            : EVENT_NAMES.PAGINATE_SEARCH
 
     processEventRPC({ type })
 

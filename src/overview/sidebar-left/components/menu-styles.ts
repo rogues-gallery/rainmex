@@ -12,12 +12,12 @@ const baseStyles = {
         position: 'fixed',
         right: 'inherit',
         zIndex: '1100',
-        height: '100vh',
+        height: '80vh',
         width: '250px',
-        paddingTop: '55px',
-        opacity: '1',
+        top: '55px',
+        opacity: '0',
         marginLeft: '0px',
-        transition: 'all 0.2s cubic-bezier(0.65, 0.05, 0.36, 1) 0s',
+        transition: 'all 0.1s cubic-bezier(0.65, 0.05, 0.36, 1)',
         // boxShadow:
         //     'rgba(15, 15, 15, 0.05) 0px 0px 0px 1px, rgba(15, 15, 15, 0.1) 0px 3px 6px, rgba(15, 15, 15, 0.2) 0px 9px 24px',
         fontSize: '0.68rem',
@@ -29,17 +29,20 @@ const menuStyles = (isSidebarLocked, isSidebarOpen) => {
     if (isSidebarOpen) {
         ;((baseStyles.bmMenuWrap.marginLeft as unknown) as string) = '0px'
         ;((baseStyles.bmMenuWrap.opacity as unknown) as string) = '1'
-        ;((baseStyles.bmMenuWrap.background as unknown) as string) = 'transparent'
+        ;((baseStyles.bmMenuWrap
+            .background as unknown) as string) = 'transparent'
     } else {
         ;((baseStyles.bmMenuWrap.marginLeft as unknown) as string) = '-230px'
         ;((baseStyles.bmMenuWrap.opacity as unknown) as string) = '0'
-        ;((baseStyles.bmMenuWrap.background as unknown) as string) = 'transparent'
+        ;((baseStyles.bmMenuWrap
+            .background as unknown) as string) = 'transparent'
     }
 
     if (isSidebarLocked) {
         ;((baseStyles.bmMenuWrap.background as unknown) as string) = '#edf0f4'
         ;((baseStyles.bmMenuWrap.marginLeft as unknown) as string) = '0px'
         ;((baseStyles.bmMenuWrap.opacity as unknown) as string) = '1'
+        ;((baseStyles.bmMenuWrap.height as unknown) as string) = '100vh'
     }
 
     return baseStyles

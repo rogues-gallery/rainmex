@@ -42,7 +42,7 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
         const db = this.backend.dexieInstance
         const applyQuery = <T, Key>(where) =>
             where
-                .startsWith(query)
+                .startsWithIgnoreCase(query)
                 .limit(limit)
                 .uniqueKeys()
                 .catch(initErrHandler([] as T[]))
@@ -95,9 +95,7 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
 
         if (options.ignoreCase && options.ignoreCase[0] !== indexName) {
             throw new InvalidFindOptsError(
-                `Specified ignoreCase field '${
-                    options.ignoreCase[0]
-                }' is not in filter query`,
+                `Specified ignoreCase field '${options.ignoreCase[0]}' is not in filter query`,
             )
         }
 
@@ -107,7 +105,15 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
             coll = coll.reverse()
         }
 
-        const suggestions: any[] = await coll.uniqueKeys()
+        let suggestions: any[]
+        if (options.multiEntryAssocField) {
+            const records = await coll.toArray()
+            suggestions = records.map(
+                (record) => record[options.multiEntryAssocField],
+            )
+        } else {
+            suggestions = await coll.uniqueKeys()
+        }
 
         const pks = options.includePks ? await coll.primaryKeys() : []
 
@@ -129,7 +135,7 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
         limit?: number
     }) {
         const db = this.backend.dexieInstance
-        const applyQuery = where =>
+        const applyQuery = (where) =>
             where
                 .noneOf(notInclude)
                 .limit(limit)

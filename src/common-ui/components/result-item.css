@@ -1,11 +1,20 @@
 @value colors: 'src/common-ui/colors.css';
-@value color4, color1, color2, color3, color5, color6 from colors;
+@value color4, color1, color2, color3, color5, color6, boxShadow from colors;
 
 :root {
-    --height: 100px;
+    --height: 90px;
     --imgWidth: 200px;
+    --resultWidth: 800px;
     --vertical-spacing: 30px;
     --compact-scale: 0.6;
+}
+
+.resultBox {
+    display: flex;
+}
+
+.resultBoxItem {
+    width: 100%;
 }
 
 /* List entries shown as context around a search result */
@@ -24,18 +33,23 @@
 }
 
 .rootContainer {
-    composes: boxShadow from 'src/common-ui/colors.css';
+    border: 0.75px solid #e1e1e1;
+    border-radius: 5px;
     display: flex;
     flex-direction: row;
     position: relative;
     color: inherit;
     text-decoration: none;
     z-index: 0;
-    margin-bottom: 17px;
-    animation: onload 0.3s cubic-bezier(0.65, 0.05, 0.36, 1);
+    margin-bottom: 5px;
     background-color: white;
-    width: 100%;
+    height: fit-content;
     min-height: var(--height);
+    width: 100%;
+    max-width: 800px;
+    box-shadow: rgb(143 143 143 / 0.05) 0px 4px 6px 4px,
+        rgba(143, 143, 143, 0.05) 0px 2px 4px;
+    transition: background 120ms ease-in 0s;
 
     &:hover {
         cursor: pointer;
@@ -47,28 +61,48 @@
     }
 
     &:hover .button {
-        opacity: 0.3;
+        opacity: 0.6;
+        display: flex;
     }
 
-    &:hover .commentActive {
-        opacity: 0.8;
+    &:hover .actionItems {
+        display: flex;
     }
 
-    &:hover .bookmark {
-        opacity: 0.8;
+    &:hover .secondaryActionButton {
+        display: flex;
     }
 
-    /*  &:hover .title {
-        width: 80%;
-    } */
+    & .button {
+        display: none;
+    }
 }
 
 .rootContainerOverview {
-    width: 800px;
-    height: 100px;
+    max-width: var(--resultWidth);
+    width: 100%;
+    height: fit-content;
+
+    & .button {
+        display: flex;
+    }
 
     & .displayTime {
         margin-right: 10px;
+        font-size: 13px;
+    }
+
+    & .url {
+        font-size: 14px;
+        margin: -7px 0 4px 38px;
+    }
+
+    & .title {
+        margin-top: -4px;
+        letter-spacing: 0.1px;
+        font-size: 16px;
+        margin-left: 12px;
+        overflow-y: hidden;
     }
 }
 
@@ -77,16 +111,17 @@
     display: flex;
     box-sizing: content-box;
     justify-content: space-between;
-    overflow: hidden;
     padding: 6px 10px;
-    width: 100%;
-    height: auto;
+    width: 95%;
+    height: fit-content;
     text-decoration: none;
     flex-direction: row;
 }
 
 .rootOverview {
     padding: 0;
+    max-width: var(--resultWidth);
+    width: 100%;
 }
 
 .crossRibbon {
@@ -166,10 +201,17 @@
     }
 }
 
+.listItem {
+    width: 98%;
+    max-width: 800px;
+    position: relative;
+}
+
 .tagContainer {
     width: 100%;
     display: flex;
     flex-direction: row;
+    margin-top: 5px;
 }
 
 .infoContainer {
@@ -177,11 +219,22 @@
     flex-direction: column;
     max-width: 100%;
     justify-content: space-between;
-    width: 100%;
+    width: stretch;
+    padding: 15px 0px;
+}
+
+.removeCollectionItemBox {
+    display: flex;
+    align-items: flex-start;
+    z-index: 1;
+
+    & > div {
+        height: fit-content;
+    }
 }
 
 .infoContainerOverview {
-    padding: 6px 14px;
+    padding: 15px 13px 15px;
 }
 
 .infoContainerScreenshot {
@@ -196,39 +249,60 @@
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    align-items: flex-start;
     height: 30px;
-    align-items: center;
-    max-width: 100%;
-    flex-wrap: nowrap;
-}
-
-.title {
-    color: color3;
-    display: flex;
-    flex-direction: row;
-    font-size: 16px;
-    font-weight: 500;
-    align-items: center;
-    width: 97%;
-    flex-basis: 95%;
-}
-
-.titleText {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     width: 100%;
 }
 
+.titleContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    min-height: 26px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    align-items: flex-start;
+    width: 800px;
+}
+
+.title {
+    color: #3a2f45;
+    flex-direction: row;
+    font-size: 14px;
+    height: 26px;
+    font-weight: 600;
+    align-items: flex-start;
+    justify-content: flex-start;
+    margin-left: 11px;
+    white-space: nowrap;
+    overflow-x: hidden;
+    position: relative;
+    text-overflow: ellipsis;
+    letter-spacing: 0.1px;
+}
+
+.favIconContainer {
+    width: 25px !important; /* stylelint-disable-line declaration-no-important */
+    height: 25px !important; /* stylelint-disable-line declaration-no-important */
+    border: 1px solid #efefef;
+    border-radius: 30px;
+    flex: none;
+}
+
 .favIcon {
-    width: 20px;
-    height: 20px;
-    margin-right: 7px;
+    width: 100%;
+    border-radius: 50px;
+}
+
+.noFavicon {
+    width: 25px !important; /* stylelint-disable-line declaration-no-important */
+    height: 25px !important; /* stylelint-disable-line declaration-no-important */
 }
 
 .url {
-    color: color6;
-    font-size: 13px;
+    color: #72727f;
+    font-size: 12px;
     min-width: 0;
     font-weight: 400;
     white-space: nowrap;
@@ -236,108 +310,111 @@
     text-overflow: ellipsis;
     align-items: center;
     max-width: 100%;
+    height: 20px;
+    margin: -5px 0px 0px 38px;
 }
 
 .url a {
     text-decoration: none;
 }
 
-.detailsBox {
+.bottomLine {
+    color: #72727f;
+    height: 16px;
     display: flex;
-    align-items: center;
-    width: 90%;
-    overflow: hidden;
+    flex-direction: row;
+    align-items: flex-end;
+    padding-left: 38px;
+    margin: 5px 0 0 0;
 }
 
 .buttonsContainer {
-    display: flex;
+    display: grid;
     flex-direction: row;
-    float: right;
-    align-items: center;
-    width: 120px;
-    height: 30px;
-    justify-content: flex-end;
-    margin-top: 0px;
-    margin-right: -4px;
+    z-index: 0;
+    grid-auto-flow: column;
+    grid-gap: 3px;
+    padding: 10px;
+    margin: -10px -10px 0 0;
 }
 
 .detailsContainer {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    height: 30px;
+    justify-content: flex-end;
+    align-items: flex-start;
+    height: 20px;
+    margin-top: -3px;
 }
 
 .displayTime {
-    font-size: 12px;
-    color: color6;
+    font-size: 11px;
+    color: #72727f;
     min-width: fit-content;
 }
 
 .button {
-    composes: nakedSquareButton from 'src/common-ui/elements.css';
-    display: inline;
     border: none;
+    z-index: 2500;
     width: 24px;
     height: 24px;
-    background-repeat: no-repeat;
+    padding: 4px;
     cursor: pointer;
     outline: none;
-    background-position: center;
-    background-size: 16px;
-    border-radius: 3px;
     opacity: 0.2;
-
-    &:hover .trash {
-        opacity: 0.8;
-    }
-}
-
-.trash {
-    background-image: url('/img/trash.svg');
-}
-
-.comment {
-    background-image: url('/img/comment.svg');
-    margin-left: 1px;
-    background-size: 17px;
-    background-color: transparent;
-    display: flex;
+    border-radius: 3px;
     justify-content: center;
     align-items: center;
-    background-position: 3px center;
-}
-
-.commentActive {
-    background-image: url('/img/commentFull.svg');
-    margin-left: 1px;
-    background-size: 17px;
-    opacity: 0.8;
-}
-
-.bookmark {
-    background-image: url('/img/star_full.svg');
-    opacity: 0.8;
-    background-size: 18px;
-    background-position-y: 3px;
+    display: flex;
+    background: none;
+    align-self: flex-start;
 
     &:hover {
         opacity: 1;
+        background-color: #e0e0e0;
+        background-position: center center;
+        background-size: contain;
+        background-repeat: no-repeat;
     }
 }
 
-.notBookmark {
-    background-image: url('/img/star_empty.svg');
-    background-size: 18px;
-    background-position-y: 3px;
+.secondaryActionButton {
+    display: none;
 }
 
-.tag {
-    background-image: url('/img/tag.svg');
-    background-size: 17px;
-    margin-left: 1px;
-    margin-top: 2px;
+.permanentButton {
+    border: none;
+    z-index: 2500;
+    height: 24px;
+    width: 24px;
+    padding: 4px;
+    opacity: 0.6;
+    cursor: pointer;
+    outline: none;
+    border-radius: 3px;
+    background: none;
+
+    &:hover {
+        opacity: 0.6;
+        background-color: #e0e0e0;
+        background-position: center center;
+        background-size: contain;
+        background-repeat: no-repeat;
+    }
+}
+
+.img {
+    height: 100%;
+    max-width: 100%;
+}
+
+.actionItems {
+    display: flex;
+    align-items: center;
+}
+
+.commentBtn {
+    /* only used to ID if button is clicked - multiple buttons so cannot use a real `id` att */
 }
 
 .tagList {
@@ -529,7 +606,7 @@
 .timeStamp {
     font-size: 14px;
     line-height: 24px;
-    color: color6;
+    color: #72727f;
 }
 
 .closeContainer {
@@ -538,7 +615,7 @@
 
 .tweetDetailsContainer {
     margin-top: -5px;
-    width: fill-available;
+    width: stretch;
 }
 
 .tweetInfoContainerSidebar {

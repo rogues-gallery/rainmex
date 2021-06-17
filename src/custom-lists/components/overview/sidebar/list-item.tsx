@@ -1,23 +1,33 @@
 import React, { Component, DragEventHandler } from 'react'
 import cx from 'classnames'
+import { UserPlan } from '@worldbrain/memex-common/lib/subscriptions/types'
+
+import { withCurrentUser } from 'src/authentication/components/AuthConnector'
+import { ContentSharingInterface } from 'src/content-sharing/background/types'
+import { runInBackground } from 'src/util/webextensionRPC'
+import analytics from 'src/analytics'
 
 const styles = require('./list-item.css')
 
 export interface Props {
     listName: string
-    isFiltered: boolean
+    listId: number
+    isFiltered?: boolean
+    onShareButtonClick?: React.MouseEventHandler<HTMLButtonElement>
     onEditButtonClick: React.MouseEventHandler<HTMLButtonElement>
     onCrossButtonClick: React.MouseEventHandler<HTMLButtonElement>
     onAddPageToList: (url: string, isSocialPost: boolean) => void
     onListItemClick: () => void
+    plans?: UserPlan[]
 }
 
 interface State {
     isMouseInside: boolean
     isDragInside: boolean
+    isShared: boolean
 }
 
-class PageList extends Component<Props, State> {
+class ListItem extends Component<Props, State> {
     private listItemRef: HTMLElement
 
     constructor(props) {
@@ -25,15 +35,25 @@ class PageList extends Component<Props, State> {
         this.state = {
             isMouseInside: false,
             isDragInside: false,
+            isShared: false,
         }
     }
 
-    componentDidMount() {
+    async componentDidMount() {
         this.attachEventListeners()
+        this.getSharedState()
     }
 
     componentWillUnmount() {
         this.removeEventListeners()
+    }
+
+    async getSharedState() {
+        const contentSharing = runInBackground<ContentSharingInterface>()
+        const remoteId = await contentSharing.getRemoteListId({
+            localListId: this.props.listId,
+        })
+        this.setState({ isShared: !!remoteId })
     }
 
     private attachEventListeners() {
@@ -69,31 +89,31 @@ class PageList extends Component<Props, State> {
     }
 
     private handleMouseEnter = () => {
-        this.setState(state => ({
+        this.setState((state) => ({
             isMouseInside: true,
         }))
     }
 
     private handleMouseLeave = () => {
-        this.setState(state => ({
+        this.setState((state) => ({
             isMouseInside: false,
         }))
     }
 
-    private handleDragOver = e => {
+    private handleDragOver = (e) => {
         e.preventDefault()
-        this.setState(state => ({
+        this.setState((state) => ({
             isDragInside: true,
         }))
     }
 
     private handleDragLeave = () => {
-        this.setState(state => ({
+        this.setState((state) => ({
             isDragInside: false,
         }))
     }
 
-    private handleDrop: DragEventHandler = e => {
+    private handleDrop: DragEventHandler<HTMLDivElement> = (e) => {
         e.preventDefault()
         this.handleDragLeave()
         // const url = e.dataTransfer.getData('URL')
@@ -101,20 +121,33 @@ class PageList extends Component<Props, State> {
         const { url, isSocialPost } = JSON.parse(
             e.dataTransfer.getData('text/plain'),
         )
+
+        analytics.trackEvent({
+            category: 'Collections',
+            action: 'addPageViaDragAndDrop',
+        })
+
         // this.props.resetUrlDragged()
         this.props.onAddPageToList(url, isSocialPost)
     }
 
-    private handleEditBtnClick: React.MouseEventHandler<
-        HTMLButtonElement
-    > = e => {
+    private handleShareBtnClick: React.MouseEventHandler<HTMLButtonElement> = (
+        e,
+    ) => {
+        e.stopPropagation()
+        this.props.onShareButtonClick?.(e)
+    }
+
+    private handleEditBtnClick: React.MouseEventHandler<HTMLButtonElement> = (
+        e,
+    ) => {
         e.stopPropagation()
         this.props.onEditButtonClick(e)
     }
 
-    private handleCrossBtnClick: React.MouseEventHandler<
-        HTMLButtonElement
-    > = e => {
+    private handleCrossBtnClick: React.MouseEventHandler<HTMLButtonElement> = (
+        e,
+    ) => {
         e.stopPropagation()
         this.props.onCrossButtonClick(e)
     }
@@ -138,6 +171,7 @@ class PageList extends Component<Props, State> {
                             <button
                                 className={cx(styles.editButton, styles.button)}
                                 onClick={this.handleEditBtnClick}
+                                title={'Edit'}
                             />
                             <button
                                 className={cx(
@@ -145,8 +179,37 @@ class PageList extends Component<Props, State> {
                                     styles.button,
                                 )}
                                 onClick={this.handleCrossBtnClick}
+                                title={'Delete'}
                             />
+                            {!this.state.isShared && (
+                                <button
+                                    className={cx(
+                                        styles.shareButton,
+                                        styles.button,
+                                    )}
+                                    onClick={this.handleShareBtnClick}
+                                    title={'Share'}
+                                />
+                            )}
                         </React.Fragment>
+                    )}
+                    {this.state.isShared && (
+                        <button
+                            className={cx(
+                                styles.shareButton,
+                                styles.button,
+                                {
+                                    [styles.shareButtonPermanent]: this.state
+                                        .isShared,
+                                },
+                                {
+                                    [styles.shareButtonPermanentHover]: this
+                                        .state.isMouseInside,
+                                },
+                            )}
+                            onClick={this.handleShareBtnClick}
+                            title={'Shared'}
+                        />
                     )}
                 </div>
             </div>
@@ -154,4 +217,4 @@ class PageList extends Component<Props, State> {
     }
 }
 
-export default PageList
+export default withCurrentUser(ListItem)

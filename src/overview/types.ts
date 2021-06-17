@@ -1,15 +1,19 @@
-import { Annotation } from 'src/sidebar-overlay/sidebar/types'
 import { PageUrlsByDay } from 'src/search/background/types'
 import { SocialPage } from 'src/social-integration/types'
+import { Annotation } from 'src/annotations/types'
 
 export interface Result extends SocialPage {
     url: string
+    fullUrl: string
     title: string
     tags: string[]
+    lists: string[]
     hasBookmark: boolean
     isDeleting: boolean
     tagPillsData: string[]
     shouldDisplayTagPopup: boolean
+    shouldDisplayListPopup: boolean
+    shouldDisplayCopyPasterPopup: boolean
     displayTime: number
     screenshot: string
     favIcon: string

@@ -9,6 +9,9 @@ import {
 import cx from 'classnames'
 import * as actions from '../actions'
 import * as selectors from '../selectors'
+import { browser } from 'webextension-polyfill-ts'
+
+const commentAdd = browser.extension.getURL('/img/comment_add.svg')
 
 const styles = require('./search-type-switch.css')
 
@@ -32,6 +35,8 @@ export interface DispatchProps {
 
 export interface OwnProps {
     isOverview?: boolean
+    handleAddCommentBtnClick: () => void
+    showSocialSearch: boolean
 }
 
 export type Props = StateProps & DispatchProps & OwnProps
@@ -101,84 +106,105 @@ export class SearchTypeSwitch extends React.PureComponent<Props> {
             <React.Fragment>
                 <div className={styles.masterContainer}>
                     <div className={styles.container}>
-                        <button
-                            className={cx(
-                                styles.searchSwitchBtn,
-                                styles.btn,
-                                styles.pages,
+                        <div>
+                            <button
+                                className={cx(
+                                    styles.searchSwitchBtn,
+                                    styles.btn,
+                                    styles.pages,
+                                )}
+                                onClick={this.handlePagesBtnClick}
+                                disabled={this.isPageSearch}
+                                id="pages"
+                            >
+                                Pages
+                            </button>
+                            {this.props.showSocialSearch && (
+                                <button
+                                    className={cx(
+                                        styles.searchSwitchBtn,
+                                        styles.btn,
+                                        styles.pages,
+                                    )}
+                                    onClick={this.handleSocialBtnClick}
+                                    disabled={
+                                        this.props.searchType === 'social'
+                                    }
+                                    id="social"
+                                >
+                                    Social
+                                </button>
                             )}
-                            onClick={this.handlePagesBtnClick}
-                            disabled={this.isPageSearch}
-                            id="pages"
+                            <button
+                                className={cx(
+                                    styles.searchSwitchBtn,
+                                    styles.btn,
+                                    styles.notesBtn,
+                                )}
+                                onClick={this.handleNotesBtnClick}
+                                disabled={this.props.searchType === 'notes'}
+                            >
+                                Notes
+                            </button>
+                        </div>
+                        <div
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                this.props.handleAddCommentBtnClick()
+                            }}
+                            className={styles.imgContainer}
                         >
-                            Pages
-                        </button>
-                        <button
-                            className={cx(
-                                styles.searchSwitchBtn,
-                                styles.btn,
-                                styles.pages,
-                            )}
-                            onClick={this.handleSocialBtnClick}
-                            disabled={this.props.searchType === 'social'}
-                            id="social"
-                        >
-                            Social
-                        </button>
-                        <button
-                            className={cx(
-                                styles.searchSwitchBtn,
-                                styles.btn,
-                                styles.notesBtn,
-                            )}
-                            onClick={this.handleNotesBtnClick}
-                            disabled={this.props.searchType === 'notes'}
-                        >
-                            Notes
-                        </button>
+                            <img
+                                style={{ maxWidth: '25px', maxHeight: '25px' }}
+                                src={commentAdd}
+                                className={styles.img}
+                            />
+                        </div>
                     </div>
-                    {this.props.searchType === 'notes' && (
-                        <div className={styles.pageSwitch}>
-                            <span>
-                                <button
-                                    className={cx(
-                                        styles.searchSwitchBtn,
-                                        styles.btn,
-                                    )}
-                                    onClick={this.props.handlePageTypeClick}
-                                    disabled={!this.isCurrentPageSearch}
-                                >
-                                    This page
-                                </button>
-                                <button
-                                    className={cx(
-                                        styles.searchSwitchBtn,
-                                        styles.btn,
-                                    )}
-                                    onClick={this.handleAllBtnClick}
-                                    disabled={this.isCurrentPageSearch}
-                                >
-                                    All
-                                </button>
-                            </span>
-                            <span>
-                                {this.isCurrentPageSearch && (
+                    <div className={styles.notesBox}>
+                        {this.props.searchType === 'notes' && (
+                            <div className={styles.pageSwitch}>
+                                <div>
                                     <button
                                         className={cx(
-                                            styles.unfoldAllBtn,
+                                            styles.searchSwitchBtn,
                                             styles.btn,
                                         )}
-                                        onClick={
-                                            this.props.handleUnfoldAllClick
-                                        }
-                                        disabled={this.isPageSearch}
+                                        onClick={this.props.handlePageTypeClick}
+                                        disabled={!this.isCurrentPageSearch}
                                     >
-                                        {this.unfoldBtnText}
+                                        This page
                                     </button>
-                                )}
-                            </span>
-                        </div>
-                    )}
+                                    <button
+                                        className={cx(
+                                            styles.searchSwitchBtn,
+                                            styles.btn,
+                                        )}
+                                        onClick={this.handleAllBtnClick}
+                                        disabled={this.isCurrentPageSearch}
+                                    >
+                                        All
+                                    </button>
+                                </div>
+                                <div>
+                                    {this.isCurrentPageSearch && (
+                                        <button
+                                            className={cx(
+                                                styles.unfoldAllBtn,
+                                                styles.btn,
+                                            )}
+                                            onClick={
+                                                this.props.handleUnfoldAllClick
+                                            }
+                                            disabled={this.isPageSearch}
+                                        >
+                                            {this.unfoldBtnText}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </React.Fragment>
         )
@@ -197,30 +223,29 @@ const mapState: MapStateToProps<StateProps, OwnProps, RootState> = (
     resultsSearchType: resultsSelectors.searchType(state),
 })
 
-const mapDispatch: MapDispatchToProps<DispatchProps, OwnProps> = dispatch => ({
-    handlePageTypeClick: e => {
+const mapDispatch: MapDispatchToProps<DispatchProps, OwnProps> = (
+    dispatch,
+) => ({
+    handlePageTypeClick: (e) => {
         e.preventDefault()
         dispatch(actions.togglePageType() as any)
     },
-    setSearchType: value => {
+    setSearchType: (value) => {
         dispatch(actions.setSearchType(value))
     },
-    setPageType: value => {
+    setPageType: (value) => {
         dispatch(actions.setPageType(value))
     },
-    handleUnfoldAllClick: e => {
+    handleUnfoldAllClick: (e) => {
         e.preventDefault()
         dispatch(resultsActs.toggleAreAnnotationsExpanded())
     },
-    setResultsSearchType: value => {
+    setResultsSearchType: (value) => {
         dispatch(resultsActs.setLoading(true))
         dispatch(resultsActs.setSearchType(value))
     },
-    setAnnotationsExpanded: value =>
+    setAnnotationsExpanded: (value) =>
         dispatch(resultsActs.setAreAnnotationsExpanded(value)),
 })
 
-export default connect(
-    mapState,
-    mapDispatch,
-)(SearchTypeSwitch)
+export default connect(mapState, mapDispatch)(SearchTypeSwitch)

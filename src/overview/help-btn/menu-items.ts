@@ -1,9 +1,15 @@
 import { MenuOptions } from './types'
+import { ONBOARDING_QUERY_PARAMS } from '../onboarding/constants'
 
 export const menuItems: MenuOptions = [
     {
         text: 'Tutorials and FAQs',
-        link: 'https://www.notion.so/worldbrain/fa44dcbf41654ceb910c5952b6097f8d',
+        link: 'https://worldbrain.io/tutorials',
+    },
+    '-',
+    {
+        text: 'Onboarding Wizard',
+        link: '#/overview?' + ONBOARDING_QUERY_PARAMS.NEW_USER,
     },
     '-',
     {
@@ -12,22 +18,26 @@ export const menuItems: MenuOptions = [
     },
     '-',
     {
-        text: 'Contact Support ',
+        text: 'Community Forum',
         link: 'https://worldbrain.io/help',
     },
+    '-',
     {
         text: 'Keyboard Shortcuts',
         link: '#/settings',
     },
+    '-',
     {
-        text: "What's New?",
-        link: 'https://www.notion.so/262a367f7a2a48ff8115d2c71f700c14',
+        text: 'Changelog & Roadmap',
+        link: 'https://worldbrain.io/changelog',
     },
+    '-',
     {
         text: 'Terms & Privacy',
         link: 'https://worldbrain.io/tos',
         small: true,
     },
+    '-',
     {
         text: 'Twitter - @worldbrain',
         link: 'https://twitter.com/worldbrain',

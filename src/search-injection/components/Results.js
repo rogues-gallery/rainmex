@@ -3,61 +3,93 @@ import PropTypes from 'prop-types'
 import classNames from 'classnames'
 import Dropdown from './Dropdown'
 import styles from './Results.css'
+import LoadingIndicator from 'src/common-ui/components/LoadingIndicator'
+import { UpdateNotifBanner } from 'src/common-ui/containers/UpdateNotifBanner'
 
-const Results = props => {
+const Results = (props) => {
     const searchEngineClass = `${props.searchEngine}_${props.position}`
+
     return (
-        <div
-            className={classNames(
-                styles.MEMEX_CONTAINER,
-                styles[searchEngineClass],
-            )}
-        >
-            <div className={styles.header}>
-                <span className={styles.resultsText}>
-                    <span className={styles.resultLength}>
-                        {props.totalCount}
-                    </span>{' '}
-                    Memex results 
-                    <a className={styles.links} onClick={props.seeMoreResults}>
-                        See all
-                    </a>
-                </span>
-                <div className={styles.linksContainer}>
-                    
-                    <a
-                        className={styles.links}
-                        onClick={props.toggleHideResults}
-                    >
-                        {props.hideResults ? 'Maximize' : 'Minimize'}
-                    </a>
-                </div>
-                <button
-                    className={styles.settingsButton}
-                    onClick={props.toggleDropdown}
-                />
-                {props.dropdown ? (
-                    <Dropdown
-                        remove={props.removeResults}
-                        rerender={props.changePosition}
-                        closeDropdown={props.closeDropdown}
-                    />
-                ) : (
-                    ''
+        <>
+            <UpdateNotifBanner
+                theme={{
+                    width: '405px',
+                    position: 'relative',
+                    iconSize: '20px',
+                }}
+            />
+            <div
+                className={classNames(
+                    styles.MEMEX_CONTAINER,
+                    styles[searchEngineClass],
+                    {
+                        [styles.MEMEX_CONTAINER_SMALL]: props.hideResults,
+                    },
                 )}
+            >
+                <div className={styles.header}>
+                    <span className={styles.resultsText}>
+                        <span className={styles.resultLength}>
+                            {props.totalCount}
+                        </span>{' '}
+                        Memex results
+                        <a
+                            className={styles.links}
+                            onClick={props.seeMoreResults}
+                        >
+                            See all
+                        </a>
+                    </span>
+                    <div className={styles.linksContainer}>
+                        <a
+                            className={styles.links}
+                            onClick={props.toggleHideResults}
+                        >
+                            {props.hideResults ? 'Maximize' : 'Minimize'}
+                        </a>
+                    </div>
+                    <button
+                        className={styles.settingsButton}
+                        onClick={props.toggleDropdown}
+                    />
+                    {props.dropdown ? (
+                        <Dropdown
+                            remove={props.removeResults}
+                            rerender={props.changePosition}
+                            closeDropdown={props.closeDropdown}
+                        />
+                    ) : (
+                        ''
+                    )}
+                </div>
+                <div
+                    className={classNames(styles.noDisplay, {
+                        [styles.notification]: props.renderNotification,
+                    })}
+                >
+                    {props.renderNotification}
+                </div>
+                <div
+                    className={classNames(styles.resultsBox, {
+                        [styles.isBlurred]: props.renderNotification,
+                        [styles.resultsBoxHidden]: props.hideResults,
+                    })}
+                >
+                    {
+                        // Render only if hideResults is false
+                        props.hideResults ? (
+                            ''
+                        ) : props.renderResultItems().length >= 0 ? (
+                            props.renderResultItems()
+                        ) : (
+                            <div className={styles.loadingBox}>
+                                <LoadingIndicator />
+                            </div>
+                        )
+                    }
+                </div>
             </div>
-            <div className={classNames(styles.noDisplay, {
-                [styles.notification]: props.renderNotification,
-            })}>
-            {props.renderNotification}
-            </div>
-            <div className={classNames(styles.resultsBox, {
-                [styles.isBlurred]: props.renderNotification,
-            })}>
-                {// Render only if hideResults is false
-                props.hideResults ? '' : props.renderResultItems()}
-            </div>
-        </div>
+        </>
     )
 }
 

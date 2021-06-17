@@ -1,25 +1,29 @@
 import { browser } from 'webextension-polyfill-ts'
 import { createAction } from 'redux-act'
-import { remoteFunction } from '../util/webextensionRPC'
+import { remoteFunction, runInBackground } from '../util/webextensionRPC'
 import { Thunk } from './types'
 import { acts as bookmarkActs } from './bookmark-button'
 import { acts as tagActs } from './tags-button'
 import { acts as collectionActs } from './collections-button'
 import { acts as blacklistActs } from './blacklist-button'
+import { TabManagementInterface } from 'src/tab-management/background/types'
+import { BookmarksInterface } from 'src/bookmarks/background/types'
+import { getUrl } from 'src/util/uri-utils'
 
 const fetchPageTagsRPC = remoteFunction('fetchPageTags')
 const fetchListsRPC = remoteFunction('fetchListPagesByUrl')
 const fetchAllListsRPC = remoteFunction('fetchAllLists')
 const fetchInitTagSuggRPC = remoteFunction('extendedSuggest')
 const isURLBlacklistedRPC = remoteFunction('isURLBlacklisted')
-const fetchInternalTabRPC = remoteFunction('fetchTab')
-const fetchTabByUrlRPC = remoteFunction('fetchTabByUrl')
+
+const tabs = runInBackground<TabManagementInterface<'caller'>>()
+const bookmarks = runInBackground<BookmarksInterface>()
 
 export const setTabId = createAction<number>('popup/setTabId')
 export const setUrl = createAction<string>('popup/setUrl')
 export const setSearchVal = createAction<string>('popup/setSearchVal')
 
-export const initState: () => Thunk = () => async dispatch => {
+const getCurrentTab = async () => {
     let currentTab
     if (browser.tabs) {
         ;[currentTab] = await browser.tabs.query({
@@ -29,35 +33,68 @@ export const initState: () => Thunk = () => async dispatch => {
     } else {
         const url = window.location.href
         if (url) {
-            currentTab = await fetchTabByUrlRPC(url)
+            currentTab = await tabs.fetchTabByUrl(url)
         }
     }
+    currentTab.url = getUrl(currentTab.url)
+    return currentTab
+}
+
+const setTabAndUrl: (id: number, url: string) => Thunk = (id, url) => async (
+    dispatch,
+) => {
+    await dispatch(setTabId(id))
+    await dispatch(setUrl(url))
+}
+
+const setTabIsBookmarked: (pageUrl: string) => Thunk = (pageUrl) => async (
+    dispatch,
+) => {
+    const hasBoomark = await bookmarks.pageHasBookmark(pageUrl)
+    await dispatch(bookmarkActs.setIsBookmarked(hasBoomark))
+}
+
+// N.B. This is also setup for all injections of the content script. Mainly so that keyboard shortcuts (bookmark) has the data when needed.
+export const initBasicStore: () => Thunk = () => async (dispatch) => {
+    const currentTab = await getCurrentTab()
 
     // If we can't get the tab data, then can't init action button states
     if (!currentTab || !currentTab.url) {
+        console.warn("initBasicStore - Couldn't get a currentTab url")
+        return false
+    }
+    await dispatch(setTabAndUrl(currentTab.id, currentTab.url))
+    await dispatch(setTabIsBookmarked(currentTab.url))
+}
+
+export const initState: () => Thunk = () => async (dispatch) => {
+    const currentTab = await getCurrentTab()
+
+    // If we can't get the tab data, then can't init action button states
+    if (!currentTab || !currentTab.url) {
+        console.warn("initState - Couldn't get a currentTab url")
         return
     }
 
-    dispatch(setTabId(currentTab.id))
-    dispatch(setUrl(currentTab.url))
+    await dispatch(setTabAndUrl(currentTab.id, currentTab.url))
 
     const isBlacklisted = await isURLBlacklistedRPC(currentTab.url)
     dispatch(blacklistActs.setIsBlacklisted(isBlacklisted))
 
     try {
-        const internalTab = await fetchInternalTabRPC(currentTab.id)
-        dispatch(bookmarkActs.setIsBookmarked(internalTab.isBookmarked))
+        await dispatch(setTabIsBookmarked(currentTab.url))
 
         const listsAssocWithPage = await fetchListsRPC({ url: currentTab.url })
         const lists = await fetchAllListsRPC({
             excludeIds: listsAssocWithPage.map(({ id }) => id),
             limit: 20,
+            skipMobileList: true,
         })
         dispatch(collectionActs.setInitColls([...listsAssocWithPage, ...lists]))
         dispatch(collectionActs.setCollections(listsAssocWithPage))
 
         // Get 20 more tags that are not related related to the list.
-        const pageTags = await fetchPageTagsRPC(currentTab.url)
+        const pageTags = await fetchPageTagsRPC({ url: currentTab.url })
         const tags = await fetchInitTagSuggRPC({
             notInclude: pageTags,
             type: 'tag',
@@ -66,5 +103,6 @@ export const initState: () => Thunk = () => async dispatch => {
         dispatch(tagActs.setTags(pageTags))
     } catch (err) {
         // Do nothing; just catch the error - means page doesn't exist for URL
+        console.warn('initState - Error', err)
     }
 }

@@ -1,154 +1,145 @@
+import cloneDeep from 'lodash/cloneDeep'
 import {
     StorageModule,
     StorageModuleConfig,
 } from '@worldbrain/storex-pattern-modules'
+import {
+    COLLECTION_DEFINITIONS,
+    COLLECTION_NAMES,
+    SPECIAL_LIST_NAMES,
+    SPECIAL_LIST_IDS,
+} from '@worldbrain/memex-storage/lib/lists/constants'
 
 import { SuggestPlugin } from 'src/search/plugins'
+import { SuggestResult } from 'src/search/types'
 import { PageList, PageListEntry } from './types'
+import { STORAGE_VERSIONS } from 'src/storage/constants'
 
 export default class CustomListStorage extends StorageModule {
-    static CUSTOM_LISTS_COLL = 'customLists'
-    static LIST_ENTRIES_COLL = 'pageListEntries'
+    static CUSTOM_LISTS_COLL = COLLECTION_NAMES.list
+    static LIST_ENTRIES_COLL = COLLECTION_NAMES.listEntry
 
-    getConfig = (): StorageModuleConfig => ({
-        collections: {
-            [CustomListStorage.CUSTOM_LISTS_COLL]: {
-                version: new Date(2018, 6, 12),
-                fields: {
-                    id: { type: 'string', pk: true },
-                    name: { type: 'string' },
-                    isDeletable: { type: 'boolean' },
-                    isNestable: { type: 'boolean' },
-                    createdAt: { type: 'datetime' },
+    static filterOutSpecialListEntries = (entry: { listId: number }) =>
+        !Object.values<number>(SPECIAL_LIST_IDS).includes(entry.listId)
+    static filterOutSpecialLists = (list: { name: string }) =>
+        !Object.values<string>(SPECIAL_LIST_NAMES).includes(list.name)
+
+    getConfig(): StorageModuleConfig {
+        const collections = cloneDeep(
+            COLLECTION_DEFINITIONS,
+        ) as typeof COLLECTION_DEFINITIONS
+        collections[COLLECTION_NAMES.listDescription].version =
+            STORAGE_VERSIONS[20].version
+        collections[COLLECTION_NAMES.listEntryDescription].version =
+            STORAGE_VERSIONS[20].version
+
+        return {
+            collections,
+            operations: {
+                createList: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'createObject',
                 },
-                indices: [
-                    { field: 'id', pk: true },
-                    { field: 'name', unique: true },
-                    { field: 'isDeletable' },
-                    { field: 'isNestable' },
-                    { field: 'createdAt' },
-                ],
-            },
-            [CustomListStorage.LIST_ENTRIES_COLL]: {
-                version: new Date(2018, 6, 12),
-                fields: {
-                    listId: { type: 'string' },
-                    pageUrl: { type: 'string' },
-                    fullUrl: { type: 'string' },
-                    createdAt: { type: 'datetime' },
+                createListEntry: {
+                    collection: CustomListStorage.LIST_ENTRIES_COLL,
+                    operation: 'createObject',
                 },
-                indices: [
-                    { field: ['listId', 'pageUrl'], pk: true },
-                    { field: 'listId' },
-                    { field: 'pageUrl' },
-                ],
-            },
-        },
-        operations: {
-            createList: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'createObject',
-            },
-            createListEntry: {
-                collection: CustomListStorage.LIST_ENTRIES_COLL,
-                operation: 'createObject',
-            },
-            findListsIncluding: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'findObjects',
-                args: {
-                    id: { $in: '$includedIds:array' },
+                countListEntries: {
+                    collection: CustomListStorage.LIST_ENTRIES_COLL,
+                    operation: 'countObjects',
+                    args: { listId: '$listId:int' },
                 },
-            },
-            findListsExcluding: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'findObjects',
-                args: [
-                    {
-                        id: { $nin: '$excludedIds:array' },
+                findListsIncluding: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'findObjects',
+                    args: {
+                        id: { $in: '$includedIds:array' },
                     },
-                    {
-                        limit: '$limit:int',
-                        skip: '$skip:int',
-                    },
-                ],
-            },
-            findListById: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'findObject',
-                args: { id: '$id:pk' },
-            },
-            findListEntriesByListId: {
-                collection: CustomListStorage.LIST_ENTRIES_COLL,
-                operation: 'findObjects',
-                args: { listId: '$listId:int' },
-            },
-            findListEntriesByUrl: {
-                collection: CustomListStorage.LIST_ENTRIES_COLL,
-                operation: 'findObjects',
-                args: { pageUrl: '$url:string' },
-            },
-            findListEntriesByLists: {
-                collection: CustomListStorage.LIST_ENTRIES_COLL,
-                operation: 'findObjects',
-                args: {
-                    listId: { $in: '$listIds:array' },
-                    pageUrl: '$url:string',
                 },
-            },
-            findListByName: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'findObject',
-                args: [{ name: '$name:string' }, { ignoreCase: ['name'] }],
-            },
-            findListByNames: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'findObjects',
-                args: [
-                    { name: { $in: '$names:string' } },
-                    { ignoreCase: ['name'] },
-                ],
-            },
-            updateListName: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'updateObject',
-                args: [
-                    {
-                        id: '$id:pk',
-                    },
-                    {
-                        $set: {
-                            name: '$name:string',
-                            createdAt: new Date(),
+                findLists: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'findObjects',
+                    args: [
+                        {},
+                        {
+                            limit: '$limit:int',
+                            skip: '$skip:int',
                         },
+                    ],
+                },
+                findListById: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'findObject',
+                    args: { id: '$id:pk' },
+                },
+                findListEntriesByListId: {
+                    collection: CustomListStorage.LIST_ENTRIES_COLL,
+                    operation: 'findObjects',
+                    args: { listId: '$listId:int' },
+                },
+                findListEntriesByUrl: {
+                    collection: CustomListStorage.LIST_ENTRIES_COLL,
+                    operation: 'findObjects',
+                    args: { pageUrl: '$url:string' },
+                },
+                findListEntriesByLists: {
+                    collection: CustomListStorage.LIST_ENTRIES_COLL,
+                    operation: 'findObjects',
+                    args: {
+                        listId: { $in: '$listIds:array' },
+                        pageUrl: '$url:string',
                     },
-                ],
-            },
-            deleteList: {
-                collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                operation: 'deleteObject',
-                args: { id: '$id:pk' },
-            },
-            deleteListEntriesByListId: {
-                collection: CustomListStorage.LIST_ENTRIES_COLL,
-                operation: 'deleteObjects',
-                args: { listId: '$listId:pk' },
-            },
-            deleteListEntriesById: {
-                collection: CustomListStorage.LIST_ENTRIES_COLL,
-                operation: 'deleteObjects',
-                args: { listId: '$listId:pk', pageUrl: '$pageUrl:string' },
-            },
-            [SuggestPlugin.SUGGEST_OBJS_OP_ID]: {
-                operation: SuggestPlugin.SUGGEST_OBJS_OP_ID,
-                args: {
-                    collection: '$collection:string',
-                    query: '$query:string',
-                    options: '$options:any',
+                },
+                findListByNameIgnoreCase: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'findObject',
+                    args: [{ name: '$name:string' }, { ignoreCase: ['name'] }],
+                },
+                findListsByNames: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'findObjects',
+                    args: { name: { $in: '$name:string[]' } },
+                },
+                updateListName: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'updateObject',
+                    args: [
+                        {
+                            id: '$id:pk',
+                        },
+                        {
+                            name: '$name:string',
+                            searchableName: '$name:string',
+                            // updatedAt: '$updatedAt:any',
+                        },
+                    ],
+                },
+                deleteList: {
+                    collection: CustomListStorage.CUSTOM_LISTS_COLL,
+                    operation: 'deleteObject',
+                    args: { id: '$id:pk' },
+                },
+                deleteListEntriesByListId: {
+                    collection: CustomListStorage.LIST_ENTRIES_COLL,
+                    operation: 'deleteObjects',
+                    args: { listId: '$listId:pk' },
+                },
+                deleteListEntriesById: {
+                    collection: CustomListStorage.LIST_ENTRIES_COLL,
+                    operation: 'deleteObjects',
+                    args: { listId: '$listId:pk', pageUrl: '$pageUrl:string' },
+                },
+                [SuggestPlugin.SUGGEST_OBJS_OP_ID]: {
+                    operation: SuggestPlugin.SUGGEST_OBJS_OP_ID,
+                    args: {
+                        collection: '$collection:string',
+                        query: '$query:string',
+                        options: '$options:any',
+                    },
                 },
             },
-        },
-    })
+        }
+    }
 
     private prepareList(
         list: PageList,
@@ -164,25 +155,68 @@ export default class CustomListStorage extends StorageModule {
         }
     }
 
+    async createInboxListIfAbsent({
+        createdAt = new Date(),
+    }: {
+        createdAt?: Date
+    }): Promise<number> {
+        const foundInboxList = await this.operation(
+            'findListByNameIgnoreCase',
+            { name: SPECIAL_LIST_NAMES.INBOX },
+        )
+        if (foundInboxList) {
+            return foundInboxList.id
+        }
+
+        return (
+            await this.operation('createList', {
+                name: SPECIAL_LIST_NAMES.INBOX,
+                id: SPECIAL_LIST_IDS.INBOX,
+                searchableName: SPECIAL_LIST_NAMES.INBOX,
+                isDeletable: false,
+                isNestable: false,
+                createdAt,
+            })
+        ).object.id
+    }
+
+    countListEntries(listId: number): Promise<number> {
+        return this.operation('countListEntries', { listId })
+    }
+
+    countInboxUnread(): Promise<number> {
+        return this.countListEntries(SPECIAL_LIST_IDS.INBOX)
+    }
+
     async fetchAllLists({
-        excludedIds = [],
         limit,
         skip,
+        skipMobileList,
     }: {
-        excludedIds?: string[]
         limit: number
         skip: number
+        skipMobileList?: boolean
     }) {
-        const lists = await this.operation('findListsExcluding', {
-            excludedIds,
+        const lists = await this.operation('findLists', {
             limit,
             skip,
         })
-        return lists.map(list => this.prepareList(list))
+
+        const prepared = lists.map((list) => this.prepareList(list))
+
+        if (skipMobileList) {
+            return prepared.filter(CustomListStorage.filterOutSpecialLists)
+        }
+
+        return prepared
     }
 
-    async fetchListById(id: number) {
-        const list = await this.operation('findListById', { id })
+    async fetchListById(id: number): Promise<PageList | null> {
+        return this.operation('findListById', { id })
+    }
+
+    async fetchListWithPagesById(id: number) {
+        const list = await this.fetchListById(id)
 
         if (!list) {
             return null
@@ -192,13 +226,9 @@ export default class CustomListStorage extends StorageModule {
 
         return this.prepareList(
             list,
-            pages.map(p => p.fullUrl),
+            pages.map((p) => p.fullUrl),
             pages.length > 0,
         )
-    }
-
-    async fetchListByNames(names: string[]) {
-        return this.operation('findListByNames', { names })
     }
 
     async fetchListPagesById({
@@ -209,23 +239,34 @@ export default class CustomListStorage extends StorageModule {
         return this.operation('findListEntriesByListId', { listId })
     }
 
+    async fetchListIdsByUrl(url: string): Promise<number[]> {
+        const entries = await this.operation('findListEntriesByUrl', { url })
+        return entries.map((entry) => entry.listId)
+    }
+
     async fetchListPagesByUrl({ url }: { url: string }) {
-        const pages = await this.operation('findListEntriesByUrl', { url })
+        const pageEntries = await this.operation('findListEntriesByUrl', {
+            url,
+        })
 
         const entriesByListId = new Map<number, any[]>()
         const listIds = new Set<string>()
 
-        pages.forEach(page => {
-            listIds.add(page.listId)
-            const current = entriesByListId.get(page.listId) || []
-            entriesByListId.set(page.listId, [...current, page.fullUrl])
-        })
+        pageEntries
+            .filter(CustomListStorage.filterOutSpecialListEntries)
+            .forEach((entry) => {
+                listIds.add(entry.listId)
+                const current = entriesByListId.get(entry.listId) || []
+                entriesByListId.set(entry.listId, [...current, entry.fullUrl])
+            })
 
-        const lists = await this.operation('findListsIncluding', {
-            includedIds: [...listIds],
-        })
+        const lists: PageList[] = (
+            await this.operation('findListsIncluding', {
+                includedIds: [...listIds],
+            })
+        ).filter(CustomListStorage.filterOutSpecialLists)
 
-        return lists.map(list => {
+        return lists.map((list) => {
             const entries = entriesByListId.get(list.id)
             return this.prepareList(list, entries, entries != null)
         })
@@ -241,20 +282,33 @@ export default class CustomListStorage extends StorageModule {
         name: string
         isDeletable?: boolean
         isNestable?: boolean
-    }) {
+    }): Promise<number> {
         const { object } = await this.operation('createList', {
             id,
             name,
-            isDeletable,
             isNestable,
+            isDeletable,
+            searchableName: name,
             createdAt: new Date(),
         })
 
         return object.id
     }
 
-    async updateListName({ id, name }: { id: number; name: string }) {
-        return this.operation('updateListName', { id, name })
+    async updateListName({
+        id,
+        name,
+        updatedAt = new Date(),
+    }: {
+        id: number
+        name: string
+        updatedAt?: Date
+    }) {
+        return this.operation('updateListName', {
+            id,
+            name,
+            // updatedAt,
+        })
     }
 
     async removeList({ id }: { id: number }) {
@@ -269,10 +323,12 @@ export default class CustomListStorage extends StorageModule {
         listId,
         pageUrl,
         fullUrl,
+        createdAt = new Date(),
     }: {
         listId: number
         pageUrl: string
         fullUrl: string
+        createdAt?: Date
     }) {
         const idExists = Boolean(await this.fetchListById(listId))
 
@@ -281,7 +337,7 @@ export default class CustomListStorage extends StorageModule {
                 listId,
                 pageUrl,
                 fullUrl,
-                createdAt: new Date(),
+                createdAt,
             })
         }
     }
@@ -296,51 +352,34 @@ export default class CustomListStorage extends StorageModule {
         return this.operation('deleteListEntriesById', { listId, pageUrl })
     }
 
-    async fetchListNameSuggestions({
-        name,
-        url,
+    async suggestLists({
+        query,
+        limit = 5,
     }: {
-        name: string
-        url: string
-    }) {
-        const suggestions = await this.operation(
+        query: string
+        limit?: number
+    }): Promise<PageList[]> {
+        const suggestions: SuggestResult<string, number> = await this.operation(
             SuggestPlugin.SUGGEST_OBJS_OP_ID,
             {
                 collection: CustomListStorage.CUSTOM_LISTS_COLL,
-                query: { name },
+                query: { nameTerms: query },
                 options: {
+                    multiEntryAssocField: 'name',
                     includePks: true,
-                    ignoreCase: ['name'],
-                    limit: 5,
+                    limit,
                 },
             },
         )
-        const listIds = suggestions.map(({ pk }) => pk)
 
-        const lists: PageList[] = suggestions.map(({ pk, suggestion }) => ({
-            id: pk,
-            name: suggestion,
-        }))
-
-        const pageEntries = await this.operation('findListEntriesByLists', {
-            listIds,
-            url,
+        const suggestedLists = await this.operation('findListsIncluding', {
+            includedIds: suggestions.map(({ pk }) => pk),
         })
 
-        const entriesByListId = new Map<number, any[]>()
-
-        pageEntries.forEach(page => {
-            const current = entriesByListId.get(page.listId) || []
-            entriesByListId.set(page.listId, [...current, page.fullUrl])
-        })
-
-        return lists.map(list => {
-            const entries = entriesByListId.get(list.id)
-            return this.prepareList(list, entries, entries != null)
-        })
+        return suggestedLists.filter(CustomListStorage.filterOutSpecialLists)
     }
 
     async fetchListIgnoreCase({ name }: { name: string }) {
-        return this.operation('findListByName', { name })
+        return this.operation('findListByNameIgnoreCase', { name })
     }
 }

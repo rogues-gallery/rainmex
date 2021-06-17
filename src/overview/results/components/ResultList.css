@@ -3,10 +3,9 @@
 
 .root {
     list-style: none;
-    width: 100%;
     overflow: scroll;
     margin: 0px auto;
-    padding: 10px 0 50px 0;
+    padding: 10px 15px 50px;
     display: flex;
     flex-direction: column;
     position: absolute;
@@ -14,6 +13,8 @@
     align-items: center;
     top: 90px;
     height: calc(100vh - 90px);
+    overflow-x: visible;
+    width: 100%;
 
     &.lessHeight {
         height: calc(100vh - 135px);
@@ -27,7 +28,8 @@
     margin-bottom: 10px;
     margin-top: 20px;
     align-self: center;
-    width: 800px;
+    max-width: 800px;
+    width: 100%;
 }
 
 .timestamp {
@@ -49,7 +51,11 @@
     flex-direction: column;
     height: 100vh;
     align-items: center;
-    overflow: scroll;
+    overflow: hidden;
+}
+
+.LoadingIndicatorContainer {
+    margin: 50px 0 100px;
 }
 
 .proTip {

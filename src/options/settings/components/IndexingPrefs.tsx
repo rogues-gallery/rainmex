@@ -29,53 +29,49 @@ class IndexingPrefs extends React.PureComponent<Props> {
 
     render() {
         return (
-            <div className={styles.block}>
-                <h1 className={styles.header}>Indexing Preferences</h1>
-                <h3 className={styles.subHeader}>
-                    Which websites do you want to make full-text searchable?
+            <div className={styles.section}>
+                <div className={styles.sectionTitle}>Indexing Preferences</div>
+                <h3 className={styles.infoText}>
+                    Define which pages you would like to search.
                 </h3>
                 <Checkbox
                     id="index-stubs"
                     isChecked={this.props.stubs}
                     handleChange={this.props.toggleStubs}
                 >
-                    Make title and url always searchable (recommended)
+                    Make title and URL of every visit searchable
                 </Checkbox>
+
+                <div className={styles.subSubTitle}>
+                    Make websites full-text searchable that I...?
+                </div>
                 <Checkbox
                     id="index-visits"
                     isChecked={this.props.visits}
                     handleChange={this.props.toggleVisits}
                 >
-                    All visited for more than{' '}
+                    visited for this many seconds{' '}
                     <input
                         type="number"
                         value={this.props.visitDelay}
                         onChange={this.props.handleVisitDelayChange}
                         min={this.props.visitDelayMin}
                         max={this.props.visitDelayMax}
-                    />{' '}
-                    seconds.
-                </Checkbox>
-                <Checkbox
-                    id="index-screenshots"
-                    isChecked={this.props.screenshots}
-                    handleChange={this.props.toggleScreenshots}
-                >
-                    Capture screenshots (triples disk space requirements)
+                    />
                 </Checkbox>
                 <Checkbox
                     id="index-bookmarks"
                     isChecked={this.props.bookmarks}
                     handleChange={this.props.toggleBookmarks}
                 >
-                    All bookmarked, tagged or sorted into collections. 
+                    bookmarked, tagged, or sorted into collections
                 </Checkbox>
                 <Checkbox
                     id="index-links"
                     isChecked={this.props.memexLinks}
                     handleChange={this.props.toggleLinks}
                 >
-                    All with highlights, notes or Memex.Links
+                    annotated or added notes to
                 </Checkbox>
             </div>
         )

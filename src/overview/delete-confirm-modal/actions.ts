@@ -27,8 +27,8 @@ export const deleteDocs: () => Thunk = () => async (dispatch, getState) => {
     const isForSocial = results.isSocialPost(getState())
 
     analytics.trackEvent({
-        category: 'Overview',
-        action: 'Delete result',
+        category: 'Pages',
+        action: 'deleteViaOverview',
     })
 
     processEventRPC({
@@ -46,8 +46,8 @@ export const deleteDocs: () => Thunk = () => async (dispatch, getState) => {
         dispatch(resultsActs.hideResultItem(url))
     } catch (err) {
         handleDBQuotaErrors(
-            error =>
-                notifications.createNotification({
+            (error) =>
+                notifications.create({
                     requireInteraction: false,
                     title: 'Memex error: deleting page',
                     message: error.message,

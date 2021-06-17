@@ -4,26 +4,26 @@
 
 .switch {
     align-items: center;
-    margin: 0 20px 0px 0px;
     display: flex;
-    padding-left: 10px;
+    justify-content: center;
+    flex: 1;
 }
 
 .icon {
     display: inline-block;
-    margin-left: 10px;
     cursor: pointer;
 }
 
 .button {
     display: inline-block;
     width: 200px;
+    height: 100%;
     text-align: left;
     border-right: 2px solid #a2a2a2ab;
 }
 
 .switchBlocks {
-    height: 45px;
+    height: 60px;
     display: flex;
 }
 
@@ -31,4 +31,5 @@
     width: 100%;
     align-items: center;
     display: flex;
+    flex: 2;
 }

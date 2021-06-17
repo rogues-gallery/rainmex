@@ -5,6 +5,7 @@ import * as selectors from './selectors'
 import * as popup from '../selectors'
 import { handleDBQuotaErrors } from 'src/util/error-handler'
 import { notifications, bookmarks } from 'src/util/remote-functions-background'
+import analytics from 'src/analytics'
 
 export const setIsBookmarked = createAction<boolean>('bookmark/setIsBookmarked')
 
@@ -13,19 +14,30 @@ export const toggleBookmark: () => Thunk = () => async (dispatch, getState) => {
     const url = popup.url(state)
     const tabId = popup.tabId(state)
     const hasBookmark = selectors.isBookmarked(state)
-    dispatch(setIsBookmarked(!hasBookmark))
 
     try {
+        // N.B. bookmark state set before and after save to prevent race conditions
+        // where the bookmark is loaded and set elsewhere (initial sidebar injection store setup)
+        // hints at a bigger refactoring of state needed.
         if (hasBookmark) {
+            dispatch(setIsBookmarked(false))
             await bookmarks.delPageBookmark({ url })
+            dispatch(setIsBookmarked(false))
         } else {
-            await bookmarks.addPageBookmark({ url, tabId })
+            dispatch(setIsBookmarked(true))
+            await bookmarks.addPageBookmark({ fullUrl: url, tabId })
+            dispatch(setIsBookmarked(true))
+
+            analytics.trackEvent({
+                category: 'Bookmarks',
+                action: 'createBookmarkViaPopup',
+            })
         }
     } catch (err) {
         dispatch(setIsBookmarked(hasBookmark))
         handleDBQuotaErrors(
-            error =>
-                notifications.createNotification({
+            (error) =>
+                notifications.create({
                     requireInteraction: false,
                     title: 'Memex error: starring page',
                     message: error.message,

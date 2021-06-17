@@ -1,10 +1,14 @@
 import ImportContainer from './imports'
 import SettingsContainer from './containers/settings'
-import BackupSettingsContainer from './backup'
+import BackupSettingsContainer from '../backup-restore/ui/backup-pane'
 import Privacy from './privacy'
 import Statistics from './statistics'
 import Settings from './settings'
-import Overview from '../overview'
+import UserScreen from '../authentication/components/UserScreen'
+import React from 'react'
+import SyncDevicesPaneContainer from '../sync/components/device-list/SyncDevicesPane'
+import DashboardResultsContainer from 'src/overview/components/DashboardResultsContainer'
+import BetaFeaturesScreen from 'src/features/ui/components/BetaFeaturesScreen'
 
 export default [
     {
@@ -14,20 +18,20 @@ export default [
         hideFromSidebar: true,
     },
     {
-        name: 'Go back to Search',
+        name: 'Home',
         pathname: '/overview',
-        component: Overview,
-        icon: 'search',
+        component: DashboardResultsContainer,
+        icon: 'home',
         useOwnLayout: true,
     },
     {
         name: 'Settings',
         pathname: '/settings',
-        component: Settings, 
+        component: Settings,
         icon: 'settings',
     },
     {
-        name: 'Import',
+        name: 'Import & Integrations',
         pathname: '/import',
         component: ImportContainer,
         icon: 'import',
@@ -37,6 +41,18 @@ export default [
         pathname: '/backup',
         component: BackupSettingsContainer,
         icon: 'backup',
+    },
+    {
+        name: 'Sync',
+        pathname: '/sync',
+        component: SyncDevicesPaneContainer,
+        icon: 'sync',
+    },
+    {
+        name: 'Beta Features',
+        pathname: '/features',
+        icon: 'settings',
+        component: BetaFeaturesScreen,
     },
     {
         name: 'Blocklist',
@@ -64,8 +80,24 @@ export default [
     },
     {
         name: 'Tutorial',
-        pathname: 'https://www.notion.so/worldbrain/Tutorials-fa44dcbf41654ceb910c5952b6097f8d',
+        pathname: 'https://worldbrain.io/tutorials',
         isExternal: true,
         icon: 'info',
+    },
+    {
+        name: 'User Account',
+        pathname: '/account',
+        icon: 'settings',
+        component: UserScreen,
+        hideFromSidebar: true,
+    },
+    {
+        name: 'User Account',
+        pathname: '/account-subscriptions',
+        icon: 'settings',
+        component: (props) => (
+            <UserScreen {...props} initiallyShowSubscriptionModal refreshUser />
+        ),
+        hideFromSidebar: true,
     },
 ]

@@ -2,29 +2,19 @@ import {
     StorageModule,
     StorageModuleConfig,
 } from '@worldbrain/storex-pattern-modules'
+import {
+    COLLECTION_DEFINITIONS,
+    COLLECTION_NAMES,
+} from '@worldbrain/memex-storage/lib/notifications/constants'
 
-import createNotif from '../../util/notifications'
-import { browser } from 'webextension-polyfill-ts'
+import { Notification } from '../types'
 
 export default class NotificationStorage extends StorageModule {
-    static NOTIFS_COLL = 'notifications'
+    static NOTIFS_COLL = COLLECTION_NAMES.notification
 
     getConfig = (): StorageModuleConfig => ({
         collections: {
-            [NotificationStorage.NOTIFS_COLL]: {
-                version: new Date(2018, 7, 4),
-                fields: {
-                    id: { type: 'string' },
-                    title: { type: 'string' },
-                    message: { type: 'string' },
-                    buttonText: { type: 'string' },
-                    link: { type: 'string' },
-                    sentTime: { type: 'datetime' },
-                    deliveredTime: { type: 'datetime' },
-                    readTime: { type: 'datetime' },
-                },
-                indices: [{ field: 'id', pk: true }],
-            },
+            ...COLLECTION_DEFINITIONS,
         },
         operations: {
             createNotification: {
@@ -35,7 +25,7 @@ export default class NotificationStorage extends StorageModule {
                 collection: NotificationStorage.NOTIFS_COLL,
                 operation: 'findObjects',
                 args: [
-                    { readTime: { $exists: false } },
+                    { readTime: { $eq: null } },
                     {
                         reverse: true,
                     },
@@ -45,7 +35,7 @@ export default class NotificationStorage extends StorageModule {
                 collection: NotificationStorage.NOTIFS_COLL,
                 operation: 'findObjects',
                 args: [
-                    { readTime: { $exists: true } },
+                    { readTime: { $ne: null } },
                     {
                         reverse: true,
                         limit: '$limit:int',
@@ -65,14 +55,24 @@ export default class NotificationStorage extends StorageModule {
             },
             readNotification: {
                 collection: NotificationStorage.NOTIFS_COLL,
-                operation: 'countObjects',
-                args: { id: '$id:pk', readTime: '$readTime:any' },
+                operation: 'updateObject',
+                args: [
+                    { id: '$id:pk' },
+                    { $set: { readTime: '$readTime:number' } },
+                ],
             },
         },
     })
 
-    async storeNotification(notification) {
-        return this.operation('createNotification', notification)
+    async storeNotification(notification: Notification) {
+        if (
+            !(await this.operation('findNotificationById', {
+                id: notification.id,
+            }))
+        ) {
+            notification.readTime = notification.readTime ?? null
+            return this.operation('createNotification', notification)
+        }
     }
 
     async fetchUnreadNotifications() {
@@ -102,36 +102,6 @@ export default class NotificationStorage extends StorageModule {
     }
 
     async fetchNotifById(id) {
-        return this.operation('findNotificationForId', { id })
-    }
-
-    async dispatchNotification(notification, releaseTime) {
-        if (notification.overview) {
-            const newNotification = {
-                ...notification.overview,
-                id: notification.id,
-                deliveredTime: Date.now(),
-                sentTime: releaseTime,
-            }
-            // Store the notification so that it displays in the inbox
-            await this.storeNotification(newNotification)
-        }
-        if (notification.system) {
-            // Check if the system has to be notified or not
-            const url = notification.system.buttons[0].action.url
-            // console.log(notification.system.title, 'hello')
-            await createNotif(
-                {
-                    title: notification.system.title,
-                    message: notification.system.message,
-                    requireInteraction: false,
-                },
-                () => {
-                    return browser.tabs.create({
-                        url,
-                    })
-                },
-            )
-        }
+        return this.operation('findNotificationById', { id })
     }
 }

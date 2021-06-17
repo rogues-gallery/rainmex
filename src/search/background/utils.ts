@@ -1,6 +1,4 @@
-import { Annotation } from 'src/direct-linking/types'
 import { ContentTypes, AnnotSearchParams, AnnotPage } from './types'
-import { Page } from '..'
 import { SearchParams as OldSearchParams } from '../types'
 
 export const contentTypeChecks = {
@@ -43,18 +41,20 @@ export const reshapeAnnotForDisplay = ({
     body,
     comment,
     createdWhen,
-    tags: tags.map(tag => tag.name),
+    tags: tags.map((tag) => tag.name),
     hasBookmark,
 })
 
-export const reshapePageForDisplay = page => ({
+export const reshapePageForDisplay = (page) => ({
     url: page.url,
+    fullUrl: page.fullUrl,
     title: page.fullTitle,
     hasBookmark: page.hasBookmark,
     screenshot: page.screenshot,
     favIcon: page.favIcon,
-    annotations: [],
+    annotations: page.annotations ?? [],
     tags: page.tags,
+    lists: page.lists,
     displayTime: page.displayTime,
     annotsCount: page.annotsCount,
 })

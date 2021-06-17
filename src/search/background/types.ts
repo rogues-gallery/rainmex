@@ -1,8 +1,12 @@
-import { Annotation } from 'src/direct-linking/types'
 import { User } from 'src/social-integration/types'
+import SearchStorage from './storage'
+import { SearchIndex } from '../types'
+import { Annotation } from 'src/annotations/types'
+import { PageIndexingBackground } from 'src/page-indexing/background'
 
 export interface AnnotPage {
     url: string
+    fullUrl: string
     title?: string
     hasBookmark: boolean
     /** Object URL to the in-memory location of the assoc. screenshot. */
@@ -14,6 +18,8 @@ export interface AnnotPage {
     annotsCount: number
     annotations: Annotation[]
     pageId?: string
+    tags: string[]
+    lists: string[]
 }
 
 export interface AnnotSearchParams {
@@ -23,7 +29,7 @@ export interface AnnotSearchParams {
     termsInc?: string[]
     termsExc?: string[]
     /** Collections to include (all results must be of pages in this collection). */
-    collections?: string[]
+    collections?: number[]
     /** Tags to include (all results must have these tags). */
     tagsInc?: string[]
     /** Tags to exclude (no results can have these tags). */
@@ -54,7 +60,9 @@ export interface AnnotSearchParams {
     base64Img?: boolean
 }
 
-export interface PageSearchParams extends AnnotSearchParams {
+export interface PageSearchParams
+    extends Omit<AnnotSearchParams, 'collections'> {
+    lists?: number[]
     contentTypes: ContentTypes
 }
 
@@ -70,6 +78,32 @@ export interface UrlFilters {
     domainUrlsInc?: Set<string>
     tagUrlsExc?: Set<string>
     domainUrlsExc?: Set<string>
+}
+
+/**
+ * Types for the search functions of the background class
+ */
+export interface BackgroundSearchParams {
+    query?: string
+    domains?: any[]
+    domainsExclude?: any[]
+    tagsInc?: any[]
+    tagsExc?: any[]
+    lists?: any[]
+    contentTypes?: ContentTypes
+    skip?: number
+    limit?: number
+    showOnlyBookmarks?: boolean
+    bookmarksOnly?: boolean
+
+    startDate?: number | Date
+    endDate?: number | Date
+    base64Img?: boolean
+    usersInc?: any
+    usersExc?: any
+    hashtagsInc?: any
+    hashtagsExc?: any
+    url?: string
 }
 
 /**
@@ -98,6 +132,18 @@ export interface SocialSearchParams extends AnnotSearchParams {
     hashtagsExc?: string[]
 }
 
+export interface StandardSearchResponse {
+    resultsExhausted: boolean
+    totalCount?: number
+    docs: AnnotPage[]
+    isBadTerm?: boolean
+}
+
+export interface AnnotationsSearchResponse extends StandardSearchResponse {
+    isAnnotsSearch: true
+    annotsByDay: PageUrlsByDay
+}
+
 // Todo: add proper types and refactor RPC usage in-line with 'refactoring.md'
 export interface SearchBackend {
     addPage: any
@@ -121,4 +167,25 @@ export interface SearchBackend {
     domainHasFavIcon: any
     createPageFromTab: any
     createPageFromUrl: any
+}
+
+export interface SearchInterface {
+    search: SearchIndex['search']
+    searchAnnotations: (
+        params: BackgroundSearchParams,
+    ) => Promise<StandardSearchResponse | AnnotationsSearchResponse>
+    searchPages: (
+        params: BackgroundSearchParams,
+    ) => Promise<StandardSearchResponse>
+    searchSocial: (
+        params: BackgroundSearchParams,
+    ) => Promise<StandardSearchResponse>
+
+    suggest: SearchStorage['suggest']
+    extendedSuggest: SearchStorage['suggestExtended']
+
+    delPages: PageIndexingBackground['delPages']
+    delPagesByDomain: PageIndexingBackground['delPagesByDomain']
+    delPagesByPattern: PageIndexingBackground['delPagesByPattern']
+    getMatchingPageCount: SearchIndex['getMatchingPageCount']
 }

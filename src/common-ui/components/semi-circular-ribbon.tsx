@@ -6,28 +6,18 @@ const pageStyles = require('./result-item.css')
 
 export interface Props {
     crossIconSrc?: string
-    title?: string
-    onClick: MouseEventHandler
+    onClick: MouseEventHandler<HTMLDivElement>
 }
 
 class SemiCircularRibbon extends PureComponent<Props> {
-    static defaultProps = {
-        title: 'Remove from this collection',
-        crossIconSrc: '/img/cross_grey.svg',
-    }
-
     render() {
         return (
             <ButtonTooltip
                 tooltipText="Remove from collection"
-                position="leftNarrow"
+                position="bottom"
             >
-                <div className={pageStyles.crossRibbon}>
-                    <div
-                        title={this.props.title}
-                        className={styles.ribbon}
-                        onClick={this.props.onClick}
-                    />
+                <div className={pageStyles.button} onClick={this.props.onClick}>
+                    <img src={'/img/removing.svg'} className={pageStyles.img} />
                 </div>
             </ButtonTooltip>
         )

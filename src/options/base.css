@@ -1,6 +1,8 @@
 @value colors: 'src/common-ui/colors.css';
 @value color4, color6 from colors;
 
+@import url('/fonts/Poppins/poppins.css');
+
 .root {
     background-color: white;
     display: flex;
@@ -8,15 +10,15 @@
 
     & * {
         box-sizing: border-box;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Poppins', sans-serif;
     }
 }
 
 .route {
     padding-right: 30px;
     margin: 25px 0 100px 35px;
-    max-width: 700px;
-    width: 100vw;
+    width: 400vw;
+    max-width: 800px;
 }
 
 .routeTitle {
@@ -27,7 +29,7 @@
 }
 
 .sectionTitle {
-    font-size: 20px;
+    font-size: 24px;
     color: color4;
     font-weight: 600;
     margin-top: 10px;
@@ -35,7 +37,7 @@
 
 .subTitle {
     composes: darkBlue from 'src/common-ui/colors.css';
-    font-size: 16px;
+    font-size: 19px;
     font-weight: bold;
     margin-bottom: 5px;
     margin-top: 30px;
@@ -44,6 +46,6 @@
 .subText {
     font-size: 15px;
     color: color6;
-    font-weight: 300;
-    margin: 5px 0 20px 0;
+    font-weight: 500;
+    margin: 5px 0 0px 0;
 }

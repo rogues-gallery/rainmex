@@ -10,6 +10,7 @@ import BlacklistRemoveModal from './components/BlacklistRemoveModal'
 import * as actions from './actions'
 import * as selectors from './selectors'
 import styles from './components/base.css'
+import settingsStyle from 'src/options/settings/components/settings.css'
 
 class BlacklistContainer extends Component {
     static propTypes = {
@@ -41,9 +42,9 @@ class BlacklistContainer extends Component {
     }
 
     focusInput = () => this.input.focus()
-    assignRef = input => (this.input = input)
+    assignRef = (input) => (this.input = input)
 
-    onNewBlacklistItemAdded = event => {
+    onNewBlacklistItemAdded = (event) => {
         event.preventDefault()
         // Make sure to interpret '.' as "period" rather than "any single character", as it is common in hostnames
         // also ignore all whitespace
@@ -60,7 +61,7 @@ class BlacklistContainer extends Component {
     }
 
     // TODO(AM): Undo? Confirmation?
-    onDeleteClicked = index => () => this.props.removeFromBlacklist(index)
+    onDeleteClicked = (index) => () => this.props.removeFromBlacklist(index)
 
     onInputChange = (event = { target: {} }) => {
         const value = event.target.value || ''
@@ -101,10 +102,10 @@ class BlacklistContainer extends Component {
     renderAddBlacklistSites = () =>
         this.props.blacklist.length ? (
             <div>
-                <p className={styles.subTitle}>
+                <div className={settingsStyle.subSubTitle}>
                     List of blocked pages
-                </p>
-                <p className={styles.subText}>
+                </div>
+                <p className={settingsStyle.infoText}>
                     You are currently not logging visits on URLs that have the
                     following text in them.
                 </p>
@@ -136,32 +137,32 @@ class BlacklistContainer extends Component {
         return (
             <React.Fragment>
                 <div>
-                    <div className={styles.subTitle}>
+                    <div className={settingsStyle.subSubTitle}>
                         Ignore a new domain/url:
                     </div>
                     {this.renderError()}
                     {this.renderBlacklistInputRow()}
-                     <div className={styles.subText}>
-                        You can use <a href="https://regexr.com/">RegExp's</a> too!
-                    </div>
+                    <div className={settingsStyle.whiteSpacer30} />
                     {this.renderAddBlacklistSites()}
                     <BlacklistTable>
                         {this.renderBlacklistRows()}
                     </BlacklistTable>
                 </div>
-                <BlacklistRemoveModal
-                    isLoading={this.props.isLoading}
-                    matchedCount={this.props.matchedDocCount}
-                    isShown={this.props.showRemoveModal}
-                    onCancel={this.props.hideModal}
-                    onConfirm={this.handleRemoveMatching}
-                />
+                {this.props.showRemoveModal && (
+                    <BlacklistRemoveModal
+                        isLoading={this.props.isLoading}
+                        matchedCount={this.props.matchedDocCount}
+                        isShown={this.props.showRemoveModal}
+                        onCancel={this.props.hideModal}
+                        onConfirm={this.handleRemoveMatching}
+                    />
+                )}
             </React.Fragment>
         )
     }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
     inputVal: selectors.siteInputValue(state),
     blacklist: selectors.normalizedBlacklist(state),
     isInputRegexInvalid: selectors.isInputRegexInvalid(state),
@@ -174,19 +175,18 @@ const mapStateToProps = state => ({
     lastValue: selectors.lastValue(state),
 })
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
     initBlacklist: () => dispatch(actions.initBlacklist()),
     hideModal: () => dispatch(actions.setModalShow(false)),
     resetInputVal: () => dispatch(actions.resetSiteInputValue()),
-    addToBlacklist: expression => dispatch(actions.addToBlacklist(expression)),
-    removeFromBlacklist: index => dispatch(actions.removeFromBlacklist(index)),
-    removeMatchingDocs: expression =>
+    addToBlacklist: (expression) =>
+        dispatch(actions.addToBlacklist(expression)),
+    removeFromBlacklist: (index) =>
+        dispatch(actions.removeFromBlacklist(index)),
+    removeMatchingDocs: (expression) =>
         dispatch(actions.removeMatchingDocs(expression)),
-    setInputVal: siteInputValue =>
+    setInputVal: (siteInputValue) =>
         dispatch(actions.setSiteInputValue({ siteInputValue })),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(BlacklistContainer)
+export default connect(mapStateToProps, mapDispatchToProps)(BlacklistContainer)

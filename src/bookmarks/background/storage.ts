@@ -3,9 +3,15 @@ import {
     StorageModule,
     StorageModuleConfig,
 } from '@worldbrain/storex-pattern-modules'
+import {
+    COLLECTION_DEFINITIONS,
+    COLLECTION_NAMES,
+} from '@worldbrain/memex-storage/lib/pages/constants'
+import { normalizeUrl } from '@worldbrain/memex-url-utils'
+import { Bookmark } from '@worldbrain/memex-storage/lib/mobile-app/features/overview/types'
 
 export default class BookmarksStorage extends StorageModule {
-    static BMS_COLL = 'bookmarks'
+    static BMS_COLL = COLLECTION_NAMES.bookmark
 
     private bookmarksColl: string
 
@@ -22,14 +28,8 @@ export default class BookmarksStorage extends StorageModule {
 
     getConfig = (): StorageModuleConfig => ({
         collections: {
-            [this.bookmarksColl]: {
-                version: new Date(2018, 1, 1),
-                fields: {
-                    url: { type: 'string' },
-                    time: { type: 'timestamp' },
-                },
-                indices: [{ field: 'url', pk: true }, { field: 'time' }],
-            },
+            [BookmarksStorage.BMS_COLL]:
+                COLLECTION_DEFINITIONS[BookmarksStorage.BMS_COLL],
         },
         operations: {
             createBookmark: {
@@ -41,17 +41,49 @@ export default class BookmarksStorage extends StorageModule {
                 operation: 'deleteObjects',
                 args: { url: '$url:pk' },
             },
+            findBookmarkByUrl: {
+                collection: this.bookmarksColl,
+                operation: 'findObject',
+                args: { url: '$url:string' },
+            },
+            findTabBookmarks: {
+                collection: this.bookmarksColl,
+                operation: 'findObjects',
+                args: { url: { $in: '$normalizedPageUrls' } },
+            },
         },
     })
 
-    async addBookmark({ url }: { url: string }) {
-        return this.operation('createBookmark', {
-            url,
-            time: Date.now(),
-        })
+    async addBookmark({
+        url,
+        time = Date.now(),
+    }: {
+        url: string
+        time?: number
+    }) {
+        const normalizedUrl = normalizeUrl(url)
+        return this.operation('createBookmark', { url: normalizedUrl, time })
     }
 
     async delBookmark({ url }: { url: string }) {
-        return this.operation('deleteBookmark', { url })
+        const normalizedUrl = normalizeUrl(url)
+        return this.operation('deleteBookmark', { url: normalizedUrl })
+    }
+
+    async createBookmarkIfNeeded(url: string, time: number) {
+        if (!(await this.pageHasBookmark(url))) {
+            await this.addBookmark({ url: normalizeUrl(url), time })
+        }
+    }
+
+    pageHasBookmark = async (url: string): Promise<boolean> => {
+        const normalizedUrl = normalizeUrl(url)
+        return !!(await this.operation('findBookmarkByUrl', {
+            url: normalizedUrl,
+        }))
+    }
+
+    async findTabBookmarks(normalizedPageUrls: string[]): Promise<Bookmark[]> {
+        return this.operation('findTabBookmarks', { normalizedPageUrls })
     }
 }

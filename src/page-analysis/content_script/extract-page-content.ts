@@ -1,41 +1,42 @@
 import { getMetadata } from 'page-metadata-parser'
 
-import transformPageHTML from 'src/util/transform-page-html'
-import PAGE_METADATA_RULES from './page-metadata-rules'
-import extractPdfContent from './extract-pdf-content'
+import PAGE_METADATA_RULES from '../page-metadata-rules'
+import { ExtractRawPageContent, RawPageContent } from '../types'
+import { getUrl, isFullUrlPDF } from 'src/util/uri-utils'
 
 export const DEF_LANG = 'en'
-
-const pick = keys => obj =>
-    Object.assign({}, ...keys.map(key => ({ [key]: obj[key] })))
 
 /**
  * Extracts content from the DOM, both searchable terms and other metadata.
  *
  * @param {Document} [doc=document] A DOM tree's Document instance.
- * @param {string} [url=location.href]
+ * @param {string} [url=null]
  * @returns {any} Object containing `fullText` text and other extracted meta content from the input page.
  */
-export default async function extractPageContent(
+
+const extractRawPageContent: ExtractRawPageContent = async (
     doc = document,
-    url = location.href,
-) {
-    // If it is a PDF, run code for pdf instead.
-    if (url.endsWith('.pdf')) {
-        return extractPdfContent({ url, blob: undefined })
+    url = null,
+) => {
+    if (url === null) {
+        url = getUrl(location.href)
     }
-
-    // Apply simple transformations to clean the page's HTML
-    const { text: processedHtml } = transformPageHTML({
-        html: doc.body.innerHTML,
-    })
-
-    const metadata = getMetadata(doc, url, PAGE_METADATA_RULES)
-
-    return {
-        fullText: processedHtml,
-        lang: doc.documentElement.lang || DEF_LANG,
-        // Picking desired fields, as getMetadata adds some unrequested stuff.
-        ...pick(Object.keys(PAGE_METADATA_RULES))(metadata),
+    if (isFullUrlPDF(url)) {
+        const rawContent: RawPageContent = {
+            type: 'pdf',
+            url,
+        }
+        return rawContent
+    } else {
+        const rawContent: RawPageContent = {
+            type: 'html',
+            url,
+            body: doc.body.innerHTML,
+            lang: doc.documentElement.lang || DEF_LANG,
+            metadata: getMetadata(doc, url, PAGE_METADATA_RULES),
+        }
+        return rawContent
     }
 }
+
+export default extractRawPageContent

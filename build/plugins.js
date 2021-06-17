@@ -10,49 +10,52 @@ import BuildNotifPlugin from 'webpack-build-notifier'
 import CssExtractPlugin from 'mini-css-extract-plugin'
 import SentryPlugin from '@sentry/webpack-plugin'
 import ZipPlugin from 'zip-webpack-plugin'
+import ScriptExtHtmlWebpackPlugin from 'script-ext-html-webpack-plugin'
 import PostCompilePlugin from 'post-compile-webpack-plugin'
-// Disabling this for now as it adds 2-4 seconds to inc. build time - look into finding out why
-// import WebExtReloadPlugin from 'webpack-chrome-extension-reloader'
-
 import initEnv from './env'
 import * as staticFiles from './static-files'
 import { output } from './config'
+const Dotenv = require('dotenv-webpack')
 
 /**
  * @param {boolean} tslint Denotes whether or not to enable linting on this thread as well as type checking.
  */
-const initTsPlugin = tslint =>
+const initTsPlugin = (tslint) =>
     new ForkTsPlugin({
         checkSyntacticErrors: true,
         async: false,
         tslint,
     })
 
-export default function({
+export default function ({
     webExtReloadPort = 9090,
     mode = 'development',
-    template,
-    notifsEnabled = false,
+    htmlTemplates,
     isCI = false,
+    runSentry = false,
+    notifsEnabled = false,
     shouldPackage = false,
     packagePath = '../dist',
     extPackageName = 'extension.zip',
     sourcePackageName = 'source-code.zip',
 }) {
+    const { defaultEnv, envPath } = initEnv({ mode })
+
     const plugins = [
-        new EnvironmentPlugin(initEnv({ mode })),
+        new EnvironmentPlugin(defaultEnv),
+        new Dotenv({ path: envPath }),
         new CopyPlugin(staticFiles.copyPatterns),
         new HtmlPlugin({
             title: 'Popup',
             chunks: ['popup'],
             filename: 'popup.html',
-            template,
+            template: htmlTemplates.popup,
         }),
         new HtmlPlugin({
             title: 'Memex',
             chunks: ['options'],
             filename: 'options.html',
-            template,
+            template: htmlTemplates.options,
         }),
         new HtmlIncAssetsPlugin({
             append: false,
@@ -61,22 +64,55 @@ export default function({
         new CssExtractPlugin({
             filename: '[name].css',
         }),
+        new ScriptExtHtmlWebpackPlugin({
+            async: ['popup.js', 'lib/browser-polyfill.js'],
+            preload: /\.(css|js)$/,
+            prefetch: /\.(svg|png)$/,
+        }),
     ]
 
     if (mode === 'development') {
         plugins.push(
-            new HardSourcePlugin(),
-            // new WebExtReloadPlugin({
-            //     port: webExtReloadPort,
-            // }),
+            new HardSourcePlugin({
+                environmentHash: {
+                    root: process.cwd(),
+                    directories: [],
+                    files: [
+                        'yarn.lock',
+                        'package-lock.json',
+                        'private/.env.example',
+                        'private/.env.production',
+                        'private/.env.development',
+                    ],
+                },
+            }),
         )
     } else if (mode === 'production') {
         plugins.push(
             new SentryPlugin({
                 release: process.env.npm_package_version,
                 include: output.path,
-                dryRun: !shouldPackage,
+                dryRun: !runSentry,
+                debug: true,
             }),
+        )
+    }
+
+    if (shouldPackage || isCI) {
+        plugins.push(
+            new ZipPlugin({
+                path: packagePath,
+                filename: extPackageName,
+                exclude: [/\.map/],
+            }),
+        )
+    }
+
+    if (shouldPackage) {
+        plugins.push(
+            new PostCompilePlugin(() =>
+                exec('git-archive-all dist/source-code.zip'),
+            ),
         )
     }
 
@@ -90,19 +126,6 @@ export default function({
             new BuildNotifPlugin({
                 title: 'Memex Build',
             }),
-        )
-    }
-
-    if (shouldPackage) {
-        plugins.push(
-            new ZipPlugin({
-                path: packagePath,
-                filename: extPackageName,
-                exclude: [/\.map/],
-            }),
-            new PostCompilePlugin(() =>
-                exec('git archive -o dist/source-code.zip master'),
-            ),
         )
     }
 

@@ -7,8 +7,7 @@ import { Link } from 'react-router'
 import ButtonTooltip from 'src/common-ui/components/button-tooltip'
 import cx from 'classnames'
 
-import InboxButton from 'src/notifications/components/InboxButton'
-import BackupStatus from 'src/notifications/components/BackupStatusContainer'
+import BackupStatus from 'src/backup-restore/ui/backup-status-bar/BackupStatusBarContainer'
 import { OVERVIEW_URL } from 'src/constants'
 import BackToSearch from 'src/overview/sidebar-left/components/BackToSearch'
 import SearchFilters from 'src/search-filters'
@@ -21,7 +20,6 @@ export interface Props {
     settingsRoute?: string
     overviewUrl?: string
     pricingUrl?: string
-    automaticBackupEnalbled?: boolean
     checkedIcon: string
     crossIcon: string
     query: string
@@ -46,7 +44,6 @@ class Header extends PureComponent<Props> {
         checkedIcon: 'img/checked_green.svg',
         crossIcon: 'img/cross.svg',
         settingsRoute: '/settings',
-        automaticBackupEnabled: localStorage.getItem('backup.has-subscription'),
         overviewUrl: OVERVIEW_URL,
     }
 
@@ -76,6 +73,12 @@ class Header extends PureComponent<Props> {
                         })}
                     >
                         <div className={styles.searchField}>
+                            <span className={styles.searchIconContainer}>
+                                <img
+                                    src="/img/search.svg"
+                                    className={styles.searchIconImg}
+                                />
+                            </span>
                             <input
                                 id="query-search-bar"
                                 className={styles.query}
@@ -88,7 +91,7 @@ class Header extends PureComponent<Props> {
                                 autoComplete="off"
                             />
                         </div>
-                        <button
+                        <div
                             className={cx(styles.button, {
                                 [styles.activeButton]: this.props
                                     .showClearFiltersBtn,
@@ -107,21 +110,23 @@ class Header extends PureComponent<Props> {
                                     />
                                 </ButtonTooltip>
                             )}
-                        </button>
+                        </div>
                     </div>
                     <div className={styles.links}>
-                        <BackupStatus className={styles.backupStatus} />
-                        <InboxButton
+                        <BackupStatus />
+                        {/*<InboxButton
                             toggleInbox={this.props.toggleInbox}
                             showInbox={this.props.showInbox}
                             unreadNotifCount={this.props.unreadNotifCount}
                             showUnreadCount={this.props.showUnreadCount}
-                        />
+                        />*/}
                         <Link to={this.props.settingsRoute}>
-                            <span
-                                title="Settings"
-                                className={styles.settingsIcon}
-                            />
+                            <div className={styles.settingsBox}>
+                                <span
+                                    title="Settings"
+                                    className={styles.settingsIcon}
+                                />
+                            </div>
                         </Link>
                     </div>
                 </div>

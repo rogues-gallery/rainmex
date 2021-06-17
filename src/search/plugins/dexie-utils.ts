@@ -1,6 +1,12 @@
 import { StorageBackendPlugin } from '@worldbrain/storex'
 import { DexieStorageBackend } from '@worldbrain/storex-backend-dexie'
 
+export interface RegexpQueryArgs {
+    collection: string
+    fieldName: string
+    pattern: string | RegExp
+}
+
 export interface GetPksProps {
     collection: string
     fieldName?: string
@@ -22,34 +28,32 @@ export class DexieUtilsPlugin extends StorageBackendPlugin<
     install(backend: DexieStorageBackend) {
         super.install(backend)
 
-        backend.registerOperation(DexieUtilsPlugin.FIND_BY_PK_OP, this.findByPk)
-        backend.registerOperation(DexieUtilsPlugin.GET_PKS_OP, this.getPks)
+        backend.registerOperation(
+            DexieUtilsPlugin.FIND_BY_PK_OP,
+            this.findByPk.bind(this),
+        )
+        backend.registerOperation(
+            DexieUtilsPlugin.GET_PKS_OP,
+            this.getPks.bind(this),
+        )
         backend.registerOperation(
             DexieUtilsPlugin.REGEXP_DELETE_OP,
-            this.deleteByRegexp,
+            this.deleteByRegexp.bind(this),
         )
         backend.registerOperation(
             DexieUtilsPlugin.REGEXP_COUNT_OP,
-            this.countByRegexp,
+            this.countByRegexp.bind(this),
         )
         backend.registerOperation(
             DexieUtilsPlugin.NUKE_DB_OP,
-            this.recreateDatabase,
+            this.recreateDatabase.bind(this),
         )
     }
 
     /**
      * NOTE: This is SUPER innefficient.
      */
-    private queryByRegexp({
-        collection,
-        fieldName,
-        pattern,
-    }: {
-        collection: string
-        fieldName: string
-        pattern: string | RegExp
-    }) {
+    private queryByRegexp({ collection, fieldName, pattern }: RegexpQueryArgs) {
         const re =
             typeof pattern === 'string' ? new RegExp(pattern, 'i') : pattern
 
@@ -91,8 +95,44 @@ export class DexieUtilsPlugin extends StorageBackendPlugin<
         return coll.primaryKeys()
     }
 
-    deleteByRegexp = args => this.queryByRegexp(args).delete()
-    countByRegexp = args => this.queryByRegexp(args).count()
+    async deleteByRegexp(args: RegexpQueryArgs) {
+        const pageUrls = await this.queryByRegexp(args).primaryKeys()
+
+        await this.backend.executeBatch([
+            {
+                collection: 'pages',
+                operation: 'deleteObjects',
+                where: { url: { $in: pageUrls } },
+            },
+            {
+                collection: 'visits',
+                operation: 'deleteObjects',
+                where: { url: { $in: pageUrls } },
+            },
+            {
+                collection: 'bookmarks',
+                operation: 'deleteObjects',
+                where: { url: { $in: pageUrls } },
+            },
+            {
+                collection: 'tags',
+                operation: 'deleteObjects',
+                where: { url: { $in: pageUrls } },
+            },
+            {
+                collection: 'pageListEntries',
+                operation: 'deleteObjects',
+                where: { pageUrl: { $in: pageUrls } },
+            },
+            {
+                collection: 'annotations',
+                operation: 'deleteObjects',
+                where: { pageUrl: { $in: pageUrls } },
+            },
+        ])
+    }
+
+    countByRegexp = (args: RegexpQueryArgs) => this.queryByRegexp(args).count()
 
     /**
      * NOTE: Super dangerous; deletes all data

@@ -23,9 +23,8 @@ const defaultState = {
     success: defaultStats, // Success counts for completed import items
     totals: defaultStats, // Static state to use to derive remaining counts from
     importStatus: STATUS.LOADING,
-    loadingMsg:
-        'Analysing your browsing history & bookmarks for importing. This can take a few moments.',
-    downloadDataFilter: FILTERS.ALL,
+    loadingMsg: 'Calculating size of history & bookmarks',
+    downloadDataFilter: FILTERS.FAIL,
     concurrency: DEF_CONCURRENCY,
     isAdvEnabled: false,
     allowTypes: {
@@ -58,15 +57,19 @@ const updateCountReducer = (state, type, isSuccess) => {
 const addDownloadDetailsReducer = (
     state,
     { url, type, status = DL_STAT.FAIL, error },
-) => ({
-    ...state,
-    ...updateCountReducer(state, type, status === DL_STAT.SUCC),
-    // TODO: Removing for now due to UI perf issues
-    // downloadData: [
-    //     { url, type, status, error }, // Prepend new details row
-    //     ...state.downloadData,
-    // ],
-})
+) => {
+    // Ignore all details data apart from errors
+    const downloadData =
+        status !== DL_STAT.FAIL
+            ? state.downloadData
+            : [{ url, type, status, error }, ...state.downloadData]
+
+    return {
+        ...state,
+        ...updateCountReducer(state, type, status === DL_STAT.SUCC),
+        downloadData,
+    }
+}
 
 const toggleAllowTypeReducer = (state, type) => ({
     ...state,
@@ -84,7 +87,9 @@ const setAllowTypeReducer = (state, value) => ({
     },
 })
 
-const finishImportsReducer = ({ loading = false, finish = true }) => state => ({
+const finishImportsReducer = ({ loading = false, finish = true }) => (
+    state,
+) => ({
     ...state,
     allowTypes: finish ? defaultState.allowTypes : state.allowTypes,
     importStatus: loading ? STATUS.LOADING : STATUS.IDLE,
@@ -94,19 +99,19 @@ const finishImportsReducer = ({ loading = false, finish = true }) => state => ({
     fail: defaultStats,
 })
 
-const prepareImportReducer = state => {
+const prepareImportReducer = (state) => {
     return {
         ...state,
         importStatus: STATUS.LOADING,
-        loadingMsg: 'Recalculating Download Size.',
+        loadingMsg: 'Calculating size of history & bookmarks',
     }
 }
 
-const cancelImportReducer = state => ({
+const cancelImportReducer = (state) => ({
     ...state,
     importStatus: STATUS.LOADING,
     blobUrl: null,
-    loadingMsg: 'Please wait as import progress gets recorded.',
+    loadingMsg: 'Import progress gets saved',
 })
 
 const initEstimateCounts = (state, { remaining, completed }) => ({
@@ -116,12 +121,15 @@ const initEstimateCounts = (state, { remaining, completed }) => ({
 })
 
 // Sets whatever key to the specified val
-const genericReducer = (key, val) => state => ({ ...state, [key]: val })
+const genericReducer = (key, val) => (state) => ({ ...state, [key]: val })
 // Sets whatever key to payload
-const payloadReducer = key => (state, payload) => ({ ...state, [key]: payload })
+const payloadReducer = (key) => (state, payload) => ({
+    ...state,
+    [key]: payload,
+})
 
 // Simple reducers constructed for state keys
-const setImportState = val => genericReducer('importStatus', val)
+const setImportState = (val) => genericReducer('importStatus', val)
 
 export default createReducer(
     {
@@ -166,7 +174,7 @@ export default createReducer(
             ...state,
             concurrency,
         }),
-        [actions.showDownloadDetails]: state => ({
+        [actions.showDownloadDetails]: (state) => ({
             ...state,
             showDownloadDetails: !state.showDownloadDetails,
         }),
@@ -174,17 +182,17 @@ export default createReducer(
             ...state,
             processErrors,
             importStatus: STATUS.LOADING,
-            loadingMsg: 'Preparing import.',
+            loadingMsg: 'Preparing Import.',
         }),
         [actions.setBlobUrl]: (state, blobUrl) => ({
             ...state,
             blobUrl,
         }),
-        [actions.toggleBookmarkImports]: state => ({
+        [actions.toggleBookmarkImports]: (state) => ({
             ...state,
             bookmarkImports: !state.bookmarkImports,
         }),
-        [actions.toggleIndexTitle]: state => ({
+        [actions.toggleIndexTitle]: (state) => ({
             ...state,
             indexTitle: !state.indexTitle,
         }),

@@ -1,4 +1,4 @@
-@import url('/fonts/Inter/inter.css');
+@import url('/fonts/Poppins/poppins.css');
 
 @value colors: '../../../common-ui/colors.css';
 @value color4, color6 from colors;
@@ -8,8 +8,7 @@
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    padding: 20px;
-    height: 140px;
+    padding: 20px 20px 30px;
 }
 
 .container * {
@@ -19,9 +18,11 @@
 }
 
 .header {
-    font-size: 1.5em;
+    font-size: 1.2rem;
     text-align: center;
     color: color4;
+    margin-bottom: 15px;
+    font-weight: bold;
 }
 
 .content {

@@ -14,17 +14,30 @@ import * as actionTypes from '../../notifications/action-types'
 import { actionRegistry } from '../../notifications/registry'
 import ActionButton from '../../notifications/components/ActionButton'
 import OptIn from '../../notifications/components/OptIn'
-import { ToggleSwitch } from '../../common-ui/components'
+import ToggleSwitch from '../../common-ui/components/ToggleSwitch'
 import { EVENT_NAMES } from '../../analytics/internal/constants'
+import type { SearchEngineName, ResultItemProps } from '../types'
+import PioneerPlanBanner from 'src/common-ui/components/pioneer-plan-banner'
+import { STORAGE_KEYS as DASHBOARD_STORAGE_KEYS } from 'src/dashboard-refactor/constants'
 
-class Container extends React.Component<any, any> {
-    static propTypes = {
-        results: PropTypes.arrayOf(PropTypes.object).isRequired,
-        len: PropTypes.number.isRequired,
-        rerender: PropTypes.func.isRequired,
-        searchEngine: PropTypes.string.isRequired,
-    }
+export interface Props {
+    results: ResultItemProps[]
+    len: number
+    rerender: () => void
+    searchEngine: SearchEngineName
+}
 
+interface State {
+    isSubscriptionBannerShown: boolean
+    hideResults: boolean
+    dropdown: boolean
+    removed: boolean
+    isNotif: boolean
+    position: null | 'side' | 'above'
+    notification: any
+}
+
+class Container extends React.Component<Props, State> {
     trackEvent: any
     readNotification: any
     fetchNotifById: any
@@ -49,7 +62,8 @@ class Container extends React.Component<any, any> {
         this.openOverviewRPC = remoteFunction('openOverviewTab')
     }
 
-    state: any = {
+    state: State = {
+        isSubscriptionBannerShown: false,
         hideResults: true,
         dropdown: false,
         removed: false,
@@ -75,6 +89,9 @@ class Container extends React.Component<any, any> {
             false,
         )
         const position = await getLocalStorage(constants.POSITION_KEY, 'side')
+        const subBannerDismissed = await getLocalStorage(
+            DASHBOARD_STORAGE_KEYS.subBannerDismissed,
+        )
 
         let fetchNotif
         if (notification) {
@@ -86,6 +103,7 @@ class Container extends React.Component<any, any> {
             position,
             isNotif: fetchNotif && !fetchNotif.readTime,
             notification,
+            isSubscriptionBannerShown: !subBannerDismissed,
         })
     }
 
@@ -126,7 +144,7 @@ class Container extends React.Component<any, any> {
     }
 
     toggleDropdown() {
-        this.setState(state => ({
+        this.setState((state) => ({
             ...state,
             dropdown: !state.dropdown,
         }))
@@ -233,6 +251,11 @@ class Container extends React.Component<any, any> {
         window.open(url, '_blank').focus()
     }
 
+    private handleSubBannerDismiss: React.MouseEventHandler = async (e) => {
+        this.setState({ isSubscriptionBannerShown: false })
+        await setLocalStorage(DASHBOARD_STORAGE_KEYS.subBannerDismissed, true)
+    }
+
     renderButton() {
         const { buttons } = this.state.notification
         const { action } = buttons[0]
@@ -245,8 +268,7 @@ class Container extends React.Component<any, any> {
                     }
                     fromSearch
                 >
-                    {' '}
-                    {buttons[0].label}{' '}
+                    {` ${buttons[0].label} `}
                 </ActionButton>
             )
         } else if (action.type === actionTypes.TOGGLE_SETTING) {
@@ -254,7 +276,7 @@ class Container extends React.Component<any, any> {
                 <OptIn fromSearch label={buttons[0].label}>
                     <ToggleSwitch
                         defaultValue
-                        onChange={val =>
+                        onChange={(val) =>
                             this.handleToggleStorageOption(action, val)
                         }
                         fromSearch
@@ -268,8 +290,7 @@ class Container extends React.Component<any, any> {
                         definition: action,
                     })}
                 >
-                    {' '}
-                    {buttons[0].label}{' '}
+                    {` ${buttons[0].label} `}
                 </ActionButton>
             )
         }
@@ -308,21 +329,30 @@ class Container extends React.Component<any, any> {
         }
 
         return (
-            <Results
-                position={this.state.position}
-                searchEngine={this.props.searchEngine}
-                totalCount={this.props.len}
-                seeMoreResults={this.seeMoreResults}
-                toggleHideResults={this.toggleHideResults}
-                hideResults={this.state.hideResults}
-                toggleDropdown={this.toggleDropdown}
-                closeDropdown={this.closeDropdown}
-                dropdown={this.state.dropdown}
-                removeResults={this.removeResults}
-                changePosition={this.changePosition}
-                renderResultItems={this.renderResultItems}
-                renderNotification={this.renderNotification()}
-            />
+            <>
+                {this.state.isSubscriptionBannerShown && (
+                    <PioneerPlanBanner
+                        onHideClick={this.handleSubBannerDismiss}
+                        width="415px"
+                        direction='column'
+                    />
+                )}
+                <Results
+                    position={this.state.position}
+                    searchEngine={this.props.searchEngine}
+                    totalCount={this.props.len}
+                    seeMoreResults={this.seeMoreResults}
+                    toggleHideResults={this.toggleHideResults}
+                    hideResults={this.state.hideResults}
+                    toggleDropdown={this.toggleDropdown}
+                    closeDropdown={this.closeDropdown}
+                    dropdown={this.state.dropdown}
+                    removeResults={this.removeResults}
+                    changePosition={this.changePosition}
+                    renderResultItems={this.renderResultItems}
+                    renderNotification={this.renderNotification()}
+                />
+            </>
         )
     }
 }

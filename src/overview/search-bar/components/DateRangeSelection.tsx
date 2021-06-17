@@ -1,4 +1,5 @@
 import React, { Component } from 'react'
+import onClickOutside from 'react-onclickoutside'
 import moment from 'moment'
 import chrono from 'chrono-node'
 import classnames from 'classnames'
@@ -6,29 +7,38 @@ import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import analytics from 'src/analytics'
 import { remoteFunction } from 'src/util/webextensionRPC'
-import { DATE_PICKER_DATE_FORMAT as FORMAT } from '../constants'
+import { DATE_PICKER_DATE_FORMAT as FORMAT } from 'src/dashboard-refactor/constants'
 import './datepicker-overrides.css'
-import { EVENT_NAMES } from '../../../analytics/internal/constants'
+import { EVENT_NAMES } from 'src/analytics/internal/constants'
 import DatePickerInput from './datepicker-input'
 
 const processEvent = remoteFunction('processEvent')
 const styles = require('./DateRangeSelection.css')
 // const stylesPro = require('../../tooltips/components/tooltip.css')
 
-interface Props {
-    env: 'inpage' | 'overview'
+export interface DateRangeSelectionProps {
+    env?: 'inpage' | 'overview'
     startDate: number
     startDateText: string
     endDate: number
     endDateText: string
+    disabled?: boolean
+    onClickOutside?: React.MouseEventHandler
+    onEscapeKeyDown?: () => void | Promise<void>
     onStartDateChange: (...args) => void
     onStartDateTextChange: (...args) => void
     onEndDateChange: (...args) => void
     onEndDateTextChange: (...args) => void
-    disabled: boolean
-    changeTooltip: (...args) => void
+    changeTooltip?: (...args) => void
 }
-class DateRangeSelection extends Component<Props> {
+
+class DateRangeSelection extends Component<DateRangeSelectionProps> {
+    static defaultProps: Partial<DateRangeSelectionProps> = {
+        changeTooltip: () => {},
+        env: 'overview',
+        disabled: false,
+    }
+
     startDatePicker: any
     endDatePicker: any
 
@@ -51,10 +61,16 @@ class DateRangeSelection extends Component<Props> {
         })
     }
 
+    handleClickOutside = (e) => {
+        if (this.props.onClickOutside) {
+            this.props.onClickOutside(e)
+        }
+    }
+
     /**
      * Overrides react-date-picker's clear input handler to also clear our local input value states.
      */
-    handleClearClick = ({ isStartDate }) => event => {
+    handleClearClick = ({ isStartDate }) => (event) => {
         event.preventDefault()
         const stateKey = isStartDate ? 'startDateText' : 'endDateText'
         const refKey = isStartDate ? 'startDatePicker' : 'endDatePicker'
@@ -64,14 +80,19 @@ class DateRangeSelection extends Component<Props> {
 
         // Update both states
         this[refKey].props.onChange(null, event)
-        this.setState(state => ({ ...state, [stateKey]: '' }))
+        this.setState((state) => ({ ...state, [stateKey]: '' }))
         updateDateText('')
     }
 
     /**
      * Overrides react-date-picker's input keydown handler to search on Enter key press.
      */
-    handleKeydown = ({ isStartDate }) => event => {
+    handleKeydown = ({ isStartDate }) => (event) => {
+        if (event.key === 'Escape' && this.props.onEscapeKeyDown) {
+            this.props.onEscapeKeyDown()
+            return
+        }
+
         if (
             this.props.env === 'inpage' &&
             !(event.ctrlKey || event.metaKey) &&
@@ -84,7 +105,7 @@ class DateRangeSelection extends Component<Props> {
                 ? this.props.onStartDateTextChange
                 : this.props.onEndDateTextChange
 
-            this.setState(state => ({
+            this.setState((state) => ({
                 ...state,
                 [stateKey]: state[stateKey] + event.key,
             }))
@@ -113,10 +134,17 @@ class DateRangeSelection extends Component<Props> {
 
         const nlpDate = chrono.parseDate(dateState)
 
-        analytics.trackEvent({
-            category: isStartDate ? 'Overview start date' : 'Overview end date',
-            action: nlpDate ? 'Successful NLP query' : 'Unsuccessful NLP query',
-        })
+        let action
+
+        if (nlpDate && isStartDate) {
+            action = 'addStartDateFilterViaQuery'
+        } else if (nlpDate && !isStartDate) {
+            action = 'addEndDateFilterViaQuery'
+        } else {
+            action = 'addInvalidDateFilterQuery'
+        }
+
+        analytics.trackEvent({ category: 'SearchFilters', action })
 
         processEvent({
             type: isStartDate
@@ -130,7 +158,7 @@ class DateRangeSelection extends Component<Props> {
         }
 
         // Reset input value state as NLP value invalid
-        this.setState(state => ({ ...state, [stateKey]: '' }))
+        this.setState((state) => ({ ...state, [stateKey]: '' }))
         return null
     }
 
@@ -176,7 +204,7 @@ class DateRangeSelection extends Component<Props> {
     /**
      * Runs against raw text input to update value state in realtime
      */
-    handleRawInputChange = ({ isStartDate }) => event => {
+    handleRawInputChange = ({ isStartDate }) => (event) => {
         const stateKey = isStartDate ? 'startDateText' : 'endDateText'
         const updateDateText = isStartDate
             ? this.props.onStartDateTextChange
@@ -184,17 +212,24 @@ class DateRangeSelection extends Component<Props> {
 
         const input = event.target
         updateDateText(input.value)
-        this.setState(state => ({ ...state, [stateKey]: input.value }))
+        this.setState((state) => ({ ...state, [stateKey]: input.value }))
     }
 
     /**
      * Runs against date selected in the date dropdown component.
      */
-    handleDateChange = ({ isStartDate }) => date => {
-        analytics.trackEvent({
-            category: isStartDate ? 'Overview start date' : 'Overview end date',
-            action: date ? 'Date selection' : 'Date clear',
-        })
+    handleDateChange = ({ isStartDate }) => (date) => {
+        let action
+
+        // tslint:disable-next-line
+        if (date) {
+            action = isStartDate
+                ? 'addStartDateFilterViaPicker'
+                : 'addEndDateFilterViaPicker'
+        } else {
+            action = isStartDate ? 'clearStartDateFilter' : 'clearEndDateFilter'
+        }
+        analytics.trackEvent({ category: 'SearchFilters', action })
 
         processEvent({
             type: date
@@ -202,8 +237,8 @@ class DateRangeSelection extends Component<Props> {
                     ? EVENT_NAMES.DATEPICKER_DROPDOWN_START
                     : EVENT_NAMES.DATEPICKER_DROPDOWN_END
                 : isStartDate
-                    ? EVENT_NAMES.DATEPICKER_CLEAR_START
-                    : EVENT_NAMES.DATEPICKER_CLEAR_END,
+                ? EVENT_NAMES.DATEPICKER_CLEAR_START
+                : EVENT_NAMES.DATEPICKER_CLEAR_END,
         })
 
         const updateDate = isStartDate
@@ -218,7 +253,7 @@ class DateRangeSelection extends Component<Props> {
 
         updateDateText(date ? date.format(FORMAT) : '')
 
-        this.setState(state => ({
+        this.setState((state) => ({
             ...state,
             [stateKey]: date ? date.format(FORMAT) : null,
         }))
@@ -257,7 +292,7 @@ class DateRangeSelection extends Component<Props> {
                     <div className={styles.dateTitleContainer}>
                         <span className={styles.dateTitle}>From</span>
                         <DatePickerInput
-                            placeholder="🕒 type time..."
+                            autoFocus
                             value={this.state.startDateText || startDateText}
                             name="from"
                             onChange={this.handleRawInputChange({
@@ -274,18 +309,15 @@ class DateRangeSelection extends Component<Props> {
                     </div>
                     <div className={styles.datePickerDiv}>
                         <DatePicker
-                            ref={dp => {
+                            ref={(dp) => {
                                 this.startDatePicker = dp
                             }}
                             className={styles.datePicker}
                             dateFormat={FORMAT}
                             isClearable
                             selected={startDate && moment(startDate)}
-                            selectsStart
                             disabledKeyboardNavigation
-                            startDate={moment(startDate)}
-                            endDate={moment(endDate)}
-                            maxDate={moment()}
+                            maxDate={moment(endDate)}
                             onChange={this.handleDateChange({
                                 isStartDate: true,
                             })}
@@ -297,7 +329,6 @@ class DateRangeSelection extends Component<Props> {
                     <div className={styles.dateTitleContainer}>
                         <span className={styles.dateTitle}>To</span>
                         <DatePickerInput
-                            placeholder="🕒 type time..."
                             value={this.state.endDateText || endDateText}
                             name="to"
                             onChange={this.handleRawInputChange({
@@ -314,16 +345,14 @@ class DateRangeSelection extends Component<Props> {
                     </div>
                     <div className={styles.datePickerDiv}>
                         <DatePicker
-                            ref={dp => {
+                            ref={(dp) => {
                                 this.endDatePicker = dp
                             }}
                             className={styles.datePicker}
                             dateFormat={FORMAT}
                             isClearable
                             selected={endDate && moment(endDate)}
-                            selectsEnd
-                            startDate={moment(startDate)}
-                            endDate={moment(endDate)}
+                            minDate={moment(startDate)}
                             maxDate={moment()}
                             disabledKeyboardNavigation
                             onChange={this.handleDateChange({
@@ -344,4 +373,4 @@ class DateRangeSelection extends Component<Props> {
     }
 }
 
-export default DateRangeSelection
+export default onClickOutside(DateRangeSelection)

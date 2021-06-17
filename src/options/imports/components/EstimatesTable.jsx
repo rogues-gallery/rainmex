@@ -29,16 +29,16 @@ const EstimatesTable = ({
             <tr>
                 <th />
                 <th>
-                    Saved <br />
-                    pages
-                </th>
-                <th>
                     Not
-                    <br /> downloaded
+                    <br /> Imported
                 </th>
                 <th>
-                    Download <br />
+                    Import <br />
                     time
+                </th>
+                <th>
+                    Already saved <br />
+                    in Memex
                 </th>
             </tr>
         </thead>
@@ -46,75 +46,45 @@ const EstimatesTable = ({
             <tr className={localStyles.importTableRow}>
                 <td>
                     <Checkbox
-                        id="history"
-                        name="history"
-                        isChecked={allowTypes[TYPE.HISTORY]}
-                        handleChange={onAllowHistoryClick}
+                        name="bookmarks"
+                        id="bookmarks"
+                        handleChange={onAllowBookmarksClick}
+                        isChecked={allowTypes[TYPE.BOOKMARK]}
                     >
-                        <div className={localStyles.labelContainer}>
-                            <span className={localStyles.checkboxText}>
-                                Browser History
-                            </span>
-                            <span className={localStyles.checkboxSubText}>
-                                from last 90 days
-                            </span>
-                        </div>
-                    </Checkbox>
-                </td>
-                <td>{estimates[TYPE.HISTORY].complete}</td>
-                <td>{estimates[TYPE.HISTORY].remaining}</td>
-                <td>
-                    {'~'}
-                    {estimates[TYPE.HISTORY].timeRemaining}
-                </td>
-            </tr>
-            <tr className={localStyles.importTableRow}>
-                <td>
-                    <Checkbox
-                            name="bookmarks"
-                            id="bookmarks"
-                            handleChange={onAllowBookmarksClick}
-                            isChecked={allowTypes[TYPE.BOOKMARK]}
-                    >{' '}
+                        {' '}
                         <div className={localStyles.labelContainer}>
                             <span className={localStyles.checkboxText}>
                                 Browser Bookmarks
                             </span>
-                            <span className={localStyles.checkboxSubText}>
-                                from forever
-                            </span>
                         </div>
                     </Checkbox>
                 </td>
-                <td>{estimates[TYPE.BOOKMARK].complete}</td>
                 <td>{estimates[TYPE.BOOKMARK].remaining}</td>
                 <td>
                     {'~'}
                     {estimates[TYPE.BOOKMARK].timeRemaining}
                 </td>
+                <td>{estimates[TYPE.BOOKMARK].complete}</td>
             </tr>
             <tr className={localStyles.importTableRow}>
                 <td>
                     <Checkbox
-                            type="checkbox"
-                            name="pocket"
-                            id="pocket"
-                            handleChange={onAllowPocketClick}
-                            isChecked={allowTypes[TYPE.OTHERS] === SERVICES.POCKET}
+                        type="checkbox"
+                        name="pocket"
+                        id="pocket"
+                        handleChange={onAllowPocketClick}
+                        isChecked={allowTypes[TYPE.OTHERS] === SERVICES.POCKET}
                     >
                         <div className={localStyles.labelContainer}>
                             <span className={localStyles.checkboxText}>
-                                Pocket import
-                            </span>
-                            <span className={localStyles.checkboxSubText}>
-                                Bookmarks, tags, time, reading list, archive
+                                Pocket
                             </span>
                         </div>
                     </Checkbox>
                 </td>
-                {!isLoading &&
-                    blobUrl === null && (
-                        <td colSpan="3">
+                {!isLoading && blobUrl === null && (
+                    <td colSpan="3">
+                        <div className={localStyles.uploaderBox}>
                             <label
                                 className={classNames(localStyles.selectFile, {
                                     [localStyles.hidden]:
@@ -138,21 +108,30 @@ const EstimatesTable = ({
                                 tooltipText="How can I get that file?"
                                 position="right"
                             >
-                                <a 
-                                    href="https://getpocket.com/export"
+                                <a
+                                    href="https://worldbrain.io/tutorials/importing"
                                     taget="_blank"
-                                > 
-                                    <span className={localStyles.tutorial}/>
+                                >
+                                    <span
+                                        className={classNames(
+                                            localStyles.tutorial,
+                                            {
+                                                [localStyles.hidden]:
+                                                    allowTypes[TYPE.OTHERS] !==
+                                                    SERVICES.POCKET,
+                                            },
+                                        )}
+                                    />
                                 </a>
                             </ButtonTooltip>
-                        </td>
-                    )}
-                {isLoading &&
-                    allowTypes[TYPE.OTHERS] === SERVICES.POCKET && (
-                        <td colSpan="3">
-                            <LoadingIndicator />
-                        </td>
-                    )}
+                        </div>
+                    </td>
+                )}
+                {isLoading && allowTypes[TYPE.OTHERS] === SERVICES.POCKET && (
+                    <td colSpan="3">
+                        <LoadingIndicator />
+                    </td>
+                )}
                 {allowTypes[TYPE.OTHERS] === SERVICES.POCKET &&
                     estimates[TYPE.OTHERS].remaining > 0 &&
                     blobUrl !== null && (
@@ -171,22 +150,21 @@ const EstimatesTable = ({
                     <Checkbox
                         name="html"
                         id="html"
-                        isChecked={allowTypes[TYPE.OTHERS] === SERVICES.NETSCAPE}
+                        isChecked={
+                            allowTypes[TYPE.OTHERS] === SERVICES.NETSCAPE
+                        }
                         handleChange={onAllowHTMLClick}
                     >
                         <div className={localStyles.labelContainer}>
                             <span className={localStyles.checkboxText}>
                                 HTML File
                             </span>
-                            <span className={localStyles.checkboxSubText}>
-                                Bookmarks, tags, time
-                            </span>
                         </div>
                     </Checkbox>
                 </td>
-                {!isLoading &&
-                    blobUrl === null && (
-                        <td colSpan="3">
+                {!isLoading && blobUrl === null && (
+                    <td colSpan="3">
+                        <div className={localStyles.uploaderBox}>
                             <label
                                 className={classNames(localStyles.selectFile, {
                                     [localStyles.hidden]:
@@ -211,21 +189,30 @@ const EstimatesTable = ({
                                 tooltipText="How can I get that file?"
                                 position="right"
                             >
-                                <a 
-                                    href="https://www.notion.so/worldbrain/7a12d7a019094785a14ff109e99a531d"
+                                <a
+                                    href="https://worldbrain.io/tutorials/importing"
                                     taget="_blank"
-                                > 
-                                    <span className={localStyles.tutorial}/>
+                                >
+                                    <span
+                                        className={classNames(
+                                            localStyles.tutorial,
+                                            {
+                                                [localStyles.hidden]:
+                                                    allowTypes[TYPE.OTHERS] !==
+                                                    SERVICES.NETSCAPE,
+                                            },
+                                        )}
+                                    />
                                 </a>
                             </ButtonTooltip>
-                        </td>
-                    )}
-                {isLoading &&
-                    allowTypes[TYPE.OTHERS] === SERVICES.NETSCAPE && (
-                        <td colSpan="3">
-                            <LoadingIndicator />
-                        </td>
-                    )}
+                        </div>
+                    </td>
+                )}
+                {isLoading && allowTypes[TYPE.OTHERS] === SERVICES.NETSCAPE && (
+                    <td colSpan="3">
+                        <LoadingIndicator />
+                    </td>
+                )}
                 {allowTypes[TYPE.OTHERS] === SERVICES.NETSCAPE &&
                     estimates[TYPE.OTHERS].remaining > 0 &&
                     blobUrl !== null && (

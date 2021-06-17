@@ -1,12 +1,25 @@
 import * as React from 'react'
 
 import { Checkbox } from '../../../common-ui/components'
-import * as utils from 'src/content-tooltip/utils'
-import { convertKeyboardEventToKeyString } from '../../../content-tooltip/utils'
-import { KeyboardShortcuts } from 'src/content-tooltip/types'
+import {
+    convertKeyboardEventToKeyString,
+    setKeyboardShortcutsState,
+} from 'src/in-page-ui/keyboard-shortcuts/utils'
+import { getKeyboardShortcutsState } from 'src/in-page-ui/keyboard-shortcuts/content_script/detection'
 import { shortcuts, ShortcutElData } from '../keyboard-shortcuts'
+import { KeyboardShortcuts } from 'src/in-page-ui/keyboard-shortcuts/types'
+import analytics from 'src/analytics'
+import { runInBackground } from 'src/util/webextensionRPC'
+import { InPageUIInterface } from 'src/in-page-ui/background/types'
 
 const styles = require('./settings.css')
+
+async function writeShortcutState(state: State) {
+    await setKeyboardShortcutsState(state)
+    await runInBackground<
+        InPageUIInterface<'caller'>
+    >().updateContextMenuEntries()
+}
 
 export interface Props {
     shortcutsData?: ShortcutElData[]
@@ -21,11 +34,12 @@ class KeyboardShortcutsContainer extends React.PureComponent<Props, State> {
 
     state: State = {
         shortcutsEnabled: true,
-        highlight: { shortcut: 'n', enabled: true },
         link: { shortcut: 'l', enabled: true },
+        openDashboard: { shortcut: 'd', enabled: true },
         toggleSidebar: { shortcut: 'r', enabled: true },
         toggleHighlights: { shortcut: 'h', enabled: true },
         createAnnotation: { shortcut: 'a', enabled: true },
+        createHighlight: { shortcut: 'n', enabled: true },
         addTag: { shortcut: 't', enabled: true },
         addComment: { shortcut: 'c', enabled: true },
         addToCollection: { shortcut: 'u', enabled: true },
@@ -33,69 +47,92 @@ class KeyboardShortcutsContainer extends React.PureComponent<Props, State> {
     }
 
     async componentDidMount() {
-        const keyboardShortcutsState = await utils.getKeyboardShortcutsState()
+        const keyboardShortcutsState = await getKeyboardShortcutsState()
         this.setState(keyboardShortcutsState)
     }
 
-    handleEnabledToggle = async e => {
+    handleEnabledToggle = async (e) => {
         const name = e.target.name as string
-        const value = e.target.checked as boolean
+        const enabled = e.target.checked as boolean
 
-        const reducer = state => {
+        const reducer = (state) => {
             if (name === 'shortcutsEnabled') {
-                return { shortcutsEnabled: value }
+                analytics.trackEvent({
+                    category: 'Settings',
+                    action: enabled
+                        ? 'enableKeyboardShortcuts'
+                        : 'disableKeyboardShortcuts',
+                })
+                return { shortcutsEnabled: enabled }
             }
-            return { [name]: { ...state[name], enabled: value } } as any
+            return { [name]: { ...state[name], enabled } } as any
         }
 
-        this.setState(reducer, () =>
-            utils.setKeyboardShortcutsState({ ...this.state }),
-        )
+        this.setState(reducer, () => writeShortcutState({ ...this.state }))
     }
 
-    recordBinding = async e => {
+    recordBinding: React.KeyboardEventHandler<HTMLInputElement> = async (e) => {
         e.preventDefault()
-        const shortcut = convertKeyboardEventToKeyString(
-            e,
-            event => event.target.value,
-        )
-        const name = e.target.name as string
+
+        const name = (e.target as HTMLInputElement).name as string
+
+        // Afford way of clearing shortcut
+        if (['Escape', 'Backspace'].includes(e.key)) {
+            this.setState(
+                (state) =>
+                    ({ [name]: { ...state[name], shortcut: '' } } as any),
+                () => writeShortcutState({ ...this.state }),
+            )
+            return
+        }
+
+        const shortcut = convertKeyboardEventToKeyString(e)
+
+        if (!shortcut.length) {
+            return
+        }
 
         this.setState(
-            state => ({ [name]: { ...state[name], shortcut } } as any),
-            () => utils.setKeyboardShortcutsState({ ...this.state }),
+            (state) => ({ [name]: { ...state[name], shortcut } } as any),
+            () => writeShortcutState({ ...this.state }),
         )
     }
 
     renderCheckboxes() {
-        return this.props.shortcutsData.map(({ id, name, children }) => (
-            <Checkbox
-                key={id}
-                id={id}
-                isChecked={this.state[name].enabled}
-                handleChange={this.handleEnabledToggle}
-                isDisabled={!this.state.shortcutsEnabled}
-                name={name}
-            >
-                {children}
-                <input
-                    type="text"
-                    value={this.state[name].shortcut}
-                    onChange={this.recordBinding}
-                    name={name}
-                />{' '}
-            </Checkbox>
-        ))
+        return this.props.shortcutsData.map(({ id, name, children }) => {
+            if (this.state[name]) {
+                return (
+                    <Checkbox
+                        key={id}
+                        id={id}
+                        isChecked={this.state[name].enabled}
+                        handleChange={this.handleEnabledToggle}
+                        isDisabled={!this.state.shortcutsEnabled}
+                        name={name}
+                    >
+                        {children}
+                        <input
+                            type="text"
+                            value={this.state[name].shortcut}
+                            onKeyDown={this.recordBinding}
+                            onChange={(e) => e.preventDefault()}
+                            disabled={!this.state.shortcutsEnabled}
+                            name={name}
+                        />{' '}
+                    </Checkbox>
+                )
+            }
+        })
     }
 
     render() {
         return (
-            <div>
-                <h1 className={styles.header}>Keyboard Shortcuts</h1>
-                <h3 className={styles.subHeader}>
+            <div className={styles.section}>
+                <div className={styles.sectionTitle}>Keyboard Shortcuts</div>
+                <div className={styles.infoText}>
                     You can also use shift, ctrl, alt, or meta to define
                     keyboard shortcuts.
-                </h3>
+                </div>
                 <Checkbox
                     id="shortcuts-enabled"
                     isChecked={this.state.shortcutsEnabled}

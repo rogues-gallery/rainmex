@@ -1,58 +1,10 @@
 import Storex from '@worldbrain/storex'
-
-import { DexieUtilsPlugin } from './plugins/dexie-utils'
-import { DBGet } from './types'
-import { Page } from './models'
-import normalizeUrl from '../util/encode-url-for-id'
-import { initErrHandler } from './storage'
+import { AnnotsByPageUrl, PageUrlsByDay } from './background/types'
 
 export const DEFAULT_TERM_SEPARATOR = /[|\u{A0}' .,|(\n)]+/u
 export const URL_SEPARATOR = /[/?#=+& _.,\-|(\n)]+/
 
 export const collections = (db: Storex) => Object.keys(db.registry.collections)
-
-export const getPage = (getDb: DBGet) => async (url: string) => {
-    const db = await getDb()
-    const page = await db
-        .collection('pages')
-        .findOneObject<Page>({ url: normalizeUrl(url) })
-        .catch(initErrHandler())
-
-    if (page == null) {
-        return null
-    }
-    const result = new Page(db, page)
-    await result.loadRels()
-    return result
-}
-
-/**
- * Hardcoded replacement for now.
- *
- * TODO: Maybe overhaul `import-item-creation` module to not need this (only caller)
- */
-export const grabExistingKeys = (getDb: DBGet) => async () => {
-    const db = await getDb()
-    let histKeys: Set<string>
-    let bmKeys: Set<string>
-
-    try {
-        histKeys = new Set(
-            await db.operation(DexieUtilsPlugin.GET_PKS_OP, {
-                collection: 'pages',
-            }),
-        )
-        bmKeys = new Set(
-            await db.operation(DexieUtilsPlugin.GET_PKS_OP, {
-                collection: 'bookmarks',
-            }),
-        )
-    } catch (err) {
-        initErrHandler({ histKeys: new Set(), bmKeys: new Set() })(err)
-    }
-
-    return { histKeys, bmKeys }
-}
 
 /**
  * Handles splitting up searchable content into indexable terms. Terms are all
@@ -68,5 +20,76 @@ export const extractContent = (
 ) =>
     content
         .split(separator)
-        .map(word => word.toLowerCase())
-        .filter(term => term.length)
+        .map((word) => word.toLowerCase())
+        .filter((term) => term.length)
+
+export const mergeAnnotsByPage = (
+    ...objs: AnnotsByPageUrl[]
+): AnnotsByPageUrl => {
+    const merged: AnnotsByPageUrl = {}
+    for (const obj of objs) {
+        for (const [pageUrl, annotations] of Object.entries(obj)) {
+            if (!merged[pageUrl]) {
+                merged[pageUrl] = annotations
+                continue
+            }
+
+            const existingUrls = new Set(merged[pageUrl].map((a) => a.url))
+            merged[pageUrl] = [
+                ...merged[pageUrl],
+                ...annotations.filter((a) => !existingUrls.has(a.url)),
+            ]
+        }
+    }
+    return merged
+}
+
+export const mergeAnnotsByDay = (...objs: PageUrlsByDay[]): PageUrlsByDay => {
+    const merged: PageUrlsByDay = {}
+    for (const obj of objs) {
+        for (const [time, annotsByPage] of Object.entries(obj)) {
+            merged[time] = merged[time]
+                ? mergeAnnotsByPage(merged[time], annotsByPage)
+                : annotsByPage
+        }
+    }
+    return merged
+}
+
+export const areAnnotsByPageObjsDifferent = (
+    a: AnnotsByPageUrl,
+    b: AnnotsByPageUrl,
+): boolean => {
+    for (const [pageUrl, annotations] of Object.entries(a)) {
+        if (!b[pageUrl]) {
+            return true
+        }
+
+        if (b[pageUrl].length !== annotations.length) {
+            return true
+        }
+
+        const existingUrlsB = new Set(b[pageUrl].map((annot) => annot.url))
+
+        for (const annot of annotations) {
+            if (!existingUrlsB.has(annot.url)) {
+                return true
+            }
+        }
+    }
+}
+
+export const areAnnotsByDayObjsDifferent = (
+    a: PageUrlsByDay,
+    b: PageUrlsByDay,
+): boolean => {
+    for (const [time, annotsByPage] of Object.entries(a)) {
+        if (!b[time]) {
+            return true
+        }
+
+        if (areAnnotsByPageObjsDifferent(b[time], annotsByPage)) {
+            return true
+        }
+    }
+}

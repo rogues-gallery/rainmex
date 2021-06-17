@@ -2,19 +2,24 @@ import { createAction } from 'redux-act'
 
 import { remoteFunction } from 'src/util/webextensionRPC'
 import * as selectors from './selectors'
-
+import * as resultActs from 'src/overview/results/actions'
 import { selectors as filters } from 'src/search-filters'
 import analytics from 'src/analytics'
+import * as Raven from 'src/util/raven' // eslint-disable-line
+import { collections } from 'src/util/remote-functions-background'
+import { SPECIAL_LIST_IDS } from '@worldbrain/memex-storage/lib/lists/constants'
 
+export const setInboxUnreadCount = createAction(
+    'custom-lists/setInboxUnreadCount',
+)
+export const decInboxUnreadCount = createAction(
+    'custom-lists/decInboxUnreadCount',
+)
 export const fetchAllLists = createAction('custom-lists/listData')
 export const createList = createAction('custom-lists/addList')
-export const deleteList = createAction(
-    'custom-lists/deleteList',
-    (id, index) => ({
-        id,
-        index,
-    }),
-)
+export const deleteList = createAction('custom-lists/deleteList', (id) => ({
+    id,
+}))
 export const updateListName = createAction(
     'custom-lists/updateListName',
     (value, index) => ({
@@ -30,7 +35,6 @@ export const addPagetoList = createAction(
         index,
     }),
 )
-export const hidePageFromList = createAction('custom-lists/hidePageFromList')
 export const showListDeleteModal = createAction(
     'custom-lists/showListDeleteModal',
     (id, index) => ({
@@ -52,13 +56,9 @@ export const setShowCrowdFundingModal = createAction(
     'custom-lists/setShowCrowdFundingModal',
 )
 
-export const toggleListFilterIndex = createAction(
-    'custom-lists/toggleListFilterIndex',
-)
-
 export const setUrlDragged = createAction(
     'custom-lists/setUrlDragged',
-    url => url,
+    (url) => url,
 )
 export const resetUrlDragged = createAction('custom-lists/resetUrlDragged')
 export const closeCreateListForm = createAction(
@@ -77,7 +77,12 @@ export const removeCommonNameWarning = createAction(
     'custom-lists/removeCommonNameWarning',
 )
 
-export const showEditBox = index => (dispatch, getState) => {
+export const getInboxUnreadCount = () => async (dispatch) => {
+    const unreadCount = await collections.getInboxUnreadCount()
+    dispatch(setInboxUnreadCount(unreadCount))
+}
+
+export const showEditBox = (index) => (dispatch, getState) => {
     const activeListIndex = selectors.activeListIndex(getState())
     if (activeListIndex === index) {
         dispatch(resetActiveListIndex())
@@ -92,29 +97,40 @@ export const delPageFromList = (url, isSocialPost) => async (
 ) => {
     try {
         const state = getState()
-        const index = selectors.listFilterIndex(state)
-        const listId = filters.listFilter(state)
+        const listId = filters.listIdFilter(state)
         const delPageFromListRPC = isSocialPost
             ? 'delPostFromList'
             : 'removePageFromList'
+
+        if (listId === SPECIAL_LIST_IDS.INBOX) {
+            analytics.trackEvent({
+                category: 'Inbox',
+                action: 'removeFromInbox',
+            })
+            dispatch(decInboxUnreadCount())
+        }
 
         await remoteFunction(delPageFromListRPC)({
             id: Number(listId),
             url,
         })
-
-        dispatch(hidePageFromList(url, index))
     } catch (err) {
-        console.error(err)
+        Raven.captureException(err)
     }
 }
 
-export const getListFromDB = () => async (dispatch, getState) => {
+export const getListFromDB = ({ skipMobileList } = {}) => async (
+    dispatch,
+    getState,
+) => {
     try {
-        const lists = await remoteFunction('fetchAllLists')({ limit: 1000 })
+        const lists = await remoteFunction('fetchAllLists')({
+            limit: 1000,
+            skipMobileList,
+        })
         dispatch(fetchAllLists(lists || []))
     } catch (err) {
-        console.error(err)
+        Raven.captureException(err)
     }
 }
 
@@ -147,46 +163,55 @@ export const createPageList = (name, cb) => async (dispatch, getState) => {
             dispatch(showCommonNameWarning())
         }
     } catch (err) {
-        console.error(err)
+        Raven.captureException(err)
     }
 }
 
-export const updateList = (index, name, id) => async (dispatch, getState) => {
+export const updateList = ([oldName, newName], id) => async (
+    dispatch,
+    getState,
+) => {
     dispatch(resetActiveListIndex())
+    const lists = selectors.allLists(getState())
+    const index = lists.findIndex((list) => list.name === oldName)
+
+    if (index === -1) {
+        return
+    }
+
     try {
-        await remoteFunction('updateListName')({ id, name })
-        dispatch(updateListName(name, index))
+        await remoteFunction('updateListName')({ id, newName, oldName })
+
+        dispatch(updateListName(newName, index))
+        dispatch(resultActs.updateListName([oldName, newName]))
     } catch (err) {
-        console.error(err)
+        Raven.captureException(err)
     }
 }
 
 export const deletePageList = () => async (dispatch, getState) => {
-    const { id, deleting } = selectors.deleteConfirmProps(getState())
+    const { id } = selectors.deleteConfirmProps(getState())
 
     try {
         // DB call to remove List by ID.
         await remoteFunction('removeList')({ id })
     } catch (err) {
-        console.error(err)
+        Raven.captureException(err)
     } finally {
-        dispatch(deleteList(id, deleting))
+        dispatch(deleteList(id))
         dispatch(resetListDeleteModal())
     }
 }
 
-export const addUrltoList = (
-    url,
-    isSocialPost,
-    index,
-    id,
-) => async dispatch => {
+export const addUrltoList = (url, isSocialPost, index, id) => async (
+    dispatch,
+) => {
     const addPagetoListRPC = isSocialPost ? 'addPostToList' : 'insertPageToList'
 
     try {
         await remoteFunction(addPagetoListRPC)({ id, url })
     } catch (err) {
-        console.error(err)
+        Raven.captureException(err)
     } finally {
         dispatch(addPagetoList(url, index))
     }
