@@ -8,17 +8,22 @@ export interface Props extends HTMLProps<HTMLButtonElement> {
     btnClass?: string
     itemClass?: string
     extraClass?: string
+    disabled?: boolean
 }
 
 class Button extends React.PureComponent<Props> {
     render() {
         const { itemClass, btnClass, children, ...btnProps } = this.props
         return (
+            // @ts-ignore
             <button
                 className={classNames(
                     styles.item,
                     styles.itemBtn,
                     this.props.itemClass,
+                    {
+                        [styles.disabled]: this.props.disabled,
+                    },
                 )}
                 {...btnProps}
             >

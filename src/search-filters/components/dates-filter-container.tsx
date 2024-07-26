@@ -3,7 +3,7 @@ import { connect, MapStateToProps } from 'react-redux'
 import { MapDispatchToProps } from 'src/util/types'
 import { RootState } from 'src/options/types'
 
-import { Tooltip } from 'src/common-ui/components'
+import Tooltip from 'src/common-ui/components/tooltip'
 import DateRangeSelection from 'src/overview/search-bar/components/DateRangeSelection'
 import FilterButton from './filter-button'
 import { actions, selectors } from 'src/search-filters'
@@ -45,7 +45,7 @@ type Props = StateProps & DispatchProps & OwnProps
 interface State {}
 
 class DatesFilter extends PureComponent<Props, State> {
-    private togglePopup: React.MouseEventHandler<HTMLButtonElement> = e => {
+    private togglePopup: React.MouseEventHandler = (e) => {
         if (this.props.env === 'inpage' && !this.props.datesFilterDropdown) {
             this.props.resetFilterPopups()
         }
@@ -74,6 +74,7 @@ class DatesFilter extends PureComponent<Props, State> {
                 startDate={this.props.startDate}
                 endDate={this.props.endDate}
                 disableOnClickOutside={this.props.env === 'inpage'}
+                getRootElement={null}
             >
                 {this.props.datesFilterDropdown && (
                     <Tooltip
@@ -119,13 +120,13 @@ const mapDispatchToProps: MapDispatchToProps<
     DispatchProps,
     OwnProps,
     RootState
-> = dispatch => ({
-    onStartDateChange: date => dispatch(searchBarActs.setStartDate(date)),
-    onEndDateChange: date => dispatch(searchBarActs.setEndDate(date)),
-    onStartDateTextChange: date =>
+> = (dispatch) => ({
+    onStartDateChange: (date) => dispatch(searchBarActs.setStartDate(date)),
+    onEndDateChange: (date) => dispatch(searchBarActs.setEndDate(date)),
+    onStartDateTextChange: (date) =>
         dispatch(searchBarActs.setStartDateText(date)),
-    onEndDateTextChange: date => dispatch(searchBarActs.setEndDateText(date)),
-    setDatesFilter: value => dispatch(actions.setDatesFilter(value)),
+    onEndDateTextChange: (date) => dispatch(searchBarActs.setEndDateText(date)),
+    setDatesFilter: (value) => dispatch(actions.setDatesFilter(value)),
     changeTooltip: () => {
         // Change tooltip notification to more filters once the user selects date
         dispatch(tooltipActs.setTooltip('more-filters'))
@@ -133,7 +134,4 @@ const mapDispatchToProps: MapDispatchToProps<
     resetFilterPopups: () => dispatch(actions.resetFilterPopups()),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(DatesFilter)
+export default connect(mapStateToProps, mapDispatchToProps)(DatesFilter)

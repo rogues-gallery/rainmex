@@ -14,7 +14,7 @@
 .item {
     text-decoration: none;
     display: flex;
-    color: color4;
+    color: #3a2f45;
     align-items: center;
     cursor: default;
     font-weight: 400;
@@ -24,8 +24,14 @@
     &:hover,
     &:focus {
         outline: 0;
-        color: color5;
-        font-weight: 500;
+        color: #3a2f45;
+        font-weight: 400;
+    }
+}
+
+.disabled {
+    &:hover {
+        background-color: none;
     }
 }
 
@@ -35,28 +41,27 @@
     font-size: 1em;
     cursor: pointer;
     font-weight: 400;
-    color: #555;
-    color: color4;
+    color: #3a2f45;
     padding-left: 20px;
     background: none !important;
 
     &:disabled {
-        color: color6;
+        color: #3a2f45;
         cursor: unset;
         background: none;
 
         &:hover {
             cursor: not-allowed;
             font-weight: 400;
-            color: color6;
+            color: #3a2f45;
         }
     }
 
     &:hover,
     &:focus {
         outline: 0;
-        color: color5;
-        font-weight: 500;
+        color: #3a2f45;
+        font-weight: 400;
     }
 }
 
@@ -92,8 +97,6 @@
 .button {
     composes: nakedSquareButton from '../../common-ui/elements.css';
     cursor: pointer;
-    margin-right: 6px;
-    margin-bottom: 6px;
     outline: 0;
     text-decoration: none;
     opacity: 0.8;
@@ -111,27 +114,42 @@
     width: 25px;
     height: 25px;
     align-self: center;
-    margin-right: 10px;
     outline: 0;
+    margin-right: 15px;
+
     background-position: center;
 }
 
 .settings {
+    composes: nakedSquareButton from '../../common-ui/elements.css';
     background-image: url('/img/settings.svg');
     background-repeat: no-repeat;
     background-size: 20px;
-    margin-top: 0px;
+    width: 25px;
+    height: 25px;
+    align-self: center;
+    outline: 0;
+    background-position: center;
+    margin-right: 5px;
+    cursor: pointer;
 }
 
 .help {
+    composes: nakedSquareButton from '../../common-ui/elements.css';
     background-image: url('/img/help.svg');
     background-repeat: no-repeat;
     background-size: 20px;
+    width: 25px;
+    height: 25px;
+    align-self: center;
+    outline: 0;
+    background-position: center;
+    margin-right: 10px;
+    cursor: pointer;
 }
 
 .buttonIcons {
     background-size: 20px;
-    margin-right: 0px;
 }
 
 .linkIcon {
@@ -151,25 +169,28 @@
 }
 
 .highlighterIcon {
-    background-image: url('/img/tooltip.svg');
+    background-image: url('/img/highlightOff.svg');
     background-repeat: no-repeat;
     background-size: 24px;
     float: left;
     opacity: 0.8;
 }
 
-.searchIcon {
-    background-image: url('/img/searchIcon.svg');
-    background-repeat: no-repeat;
-    background-size: 20px;
+.PDFIcon {
+    mask-image: url('/img/file-pdf.svg');
+    background-color: #3a2f45;
+    mask-repeat: no-repeat;
+    mask-size: 20px;
+    mask-position: center center;
     opacity: 0.8;
 }
 
-.openIcon {
-    background-image: url('/img/open.svg');
+.searchIcon {
+    background-image: url('/img/search.svg');
     background-repeat: no-repeat;
     background-size: 20px;
     opacity: 0.8;
+    float: left;
 }
 
 .badge {
@@ -185,9 +206,9 @@
 }
 
 .subTitle {
-    margin-left: 30px;
     margin-top: auto;
-    font-size: 10px;
-    color: #777;
+    font-size: 12px;
+    color: #3a2f45;
     margin-bottom: 0px;
+    opacity: 0.7;
 }

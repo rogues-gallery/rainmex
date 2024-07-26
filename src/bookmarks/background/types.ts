@@ -1,13 +1,22 @@
+import type { Bookmark } from '@worldbrain/memex-common/lib/storage/modules/mobile-app/features/overview/types'
+
 export interface BookmarksInterface {
-    addPageBookmark({
-        url,
-        timestamp,
-        tabId,
-    }: {
-        url: string
+    addPageBookmark(args: {
+        url?: string
+        fullUrl: string
         timestamp?: number
         tabId?: number
+        metaData?: {
+            pageTitle?: string
+        }
     }): Promise<any>
 
-    delPageBookmark({ url }: { url: string }): Promise<any>
+    delPageBookmark(args: { url: string }): Promise<any>
+    pageHasBookmark(url: string): Promise<boolean>
+    findBookmark(url: string): Promise<Bookmark | null>
+    autoSetBookmarkStatusInBrowserIcon(tabId: number): Promise<void>
+    setBookmarkStatusInBrowserIcon(
+        value: boolean,
+        pageUrl: string,
+    ): Promise<void>
 }

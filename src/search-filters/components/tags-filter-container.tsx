@@ -4,8 +4,8 @@ import { RootState } from 'src/options/types'
 import { MapDispatchToProps } from 'src/util/types'
 import { actions, selectors } from 'src/search-filters'
 
-import { Tooltip } from 'src/common-ui/components'
-import { IndexDropdown } from 'src/common-ui/containers'
+import Tooltip from 'src/common-ui/components/tooltip'
+import IndexDropdown from 'src/common-ui/containers/IndexDropdown'
 import FilterButton from './filter-button'
 
 import cx from 'classnames'
@@ -40,7 +40,7 @@ type Props = StateProps & DispatchProps & OwnProps
 interface State {}
 
 class TagsFilter extends PureComponent<Props, State> {
-    private togglePopup: React.MouseEventHandler<HTMLButtonElement> = e => {
+    private togglePopup: React.MouseEventHandler = (e) => {
         if (this.props.env === 'inpage' && !this.props.tagFilterDropdown) {
             this.props.resetFilterPopups()
         }
@@ -60,6 +60,7 @@ class TagsFilter extends PureComponent<Props, State> {
                 showPopup={this.props.setTagFilter}
                 clearFilters={this.props.clearTagFilters}
                 disableOnClickOutside={this.props.env === 'inpage'}
+                getRootElement={null}
             >
                 {this.props.tagFilterDropdown && (
                     <Tooltip
@@ -102,23 +103,20 @@ const mapDispatchToProps: MapDispatchToProps<
     DispatchProps,
     OwnProps,
     RootState
-> = dispatch => ({
-    addIncTagFilter: tag => {
+> = (dispatch) => ({
+    addIncTagFilter: (tag) => {
         dispatch(actions.addTagFilter(tag))
         dispatch(actions.fetchSuggestedTags())
     },
-    delIncTagFilter: tag => dispatch(actions.delTagFilter(tag)),
-    addExcTagFilter: tag => dispatch(actions.addExcTagFilter(tag)),
-    delExcTagFilter: tag => dispatch(actions.delExcTagFilter(tag)),
+    delIncTagFilter: (tag) => dispatch(actions.delTagFilter(tag)),
+    addExcTagFilter: (tag) => dispatch(actions.addExcTagFilter(tag)),
+    delExcTagFilter: (tag) => dispatch(actions.delExcTagFilter(tag)),
     clearTagFilters: () => {
         dispatch(actions.setTagFilters([]))
         dispatch(actions.setExcTagFilters([]))
     },
-    setTagFilter: value => dispatch(actions.setTagFilter(value)),
+    setTagFilter: (value) => dispatch(actions.setTagFilter(value)),
     resetFilterPopups: () => dispatch(actions.resetFilterPopups()),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(TagsFilter)
+export default connect(mapStateToProps, mapDispatchToProps)(TagsFilter)

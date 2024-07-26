@@ -9,7 +9,7 @@ import {
     ContentTypeContainer,
     HashtagsFilter,
 } from 'src/search-filters/components'
-import { ButtonTooltip } from 'src/common-ui/components/'
+import { TooltipBox } from '@worldbrain/memex-common/lib/common-ui/components/tooltip-box'
 import { Props } from './filters-sidebar-container'
 import cx from 'classnames'
 
@@ -61,26 +61,28 @@ class FiltersSidebar extends Component<Props, State> {
                     <span className={styles.filterTitle}>
                         Filters
                         {this.props.showClearFiltersBtn && (
-                            <ButtonTooltip
-                                position="right"
+                            <TooltipBox
+                                placement="right"
                                 tooltipText={'Clear filters'}
+                                getPortalRoot={null}
                             >
                                 <span
                                     className={styles.clearFilters}
                                     onClick={this.props.clearAllFilters}
                                 />
-                            </ButtonTooltip>
+                            </TooltipBox>
                         )}
                     </span>
-                    <ButtonTooltip
+                    <TooltipBox
                         tooltipText={'Close filters sidebar'}
-                        position="right"
+                        placement="right"
+                        getPortalRoot={null}
                     >
                         <button
                             className={styles.arrow}
                             onClick={this.props.toggleShowFilters}
                         />
-                    </ButtonTooltip>
+                    </TooltipBox>
                 </div>
                 <div className={styles.filters}>
                     <div className={styles.filterDiv}>
@@ -101,19 +103,22 @@ class FiltersSidebar extends Component<Props, State> {
                         </div>
                     )}
                     <div className={styles.filterDiv}>
-                        <UsersFilter tooltipPosition="inpage" env="inpage" />
-                    </div>
-                    <div className={styles.filterDiv}>
-                        <HashtagsFilter tooltipPosition="inpage" env="inpage" />
-                    </div>
-                    <div className={styles.filterDiv}>
                         <ContentTypeContainer
                             tooltipPosition="inpage"
                             env="inpage"
                         />
                     </div>
+                    <div className={styles.filterDiv}>
+                        <UsersFilter
+                            getRootElement={null}
+                            tooltipPosition="inpage"
+                            env="inpage"
+                        />
+                    </div>
+                    <div className={styles.filterDiv}>
+                        <HashtagsFilter tooltipPosition="inpage" env="inpage" />
+                    </div>
                 </div>
-                {this.renderListSidebar()}
             </div>
         )
     }

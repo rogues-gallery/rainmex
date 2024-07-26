@@ -1,43 +1,40 @@
 import { createStore, combineReducers, compose, applyMiddleware } from 'redux'
-import { createEpicMiddleware, combineEpics } from 'redux-observable'
 import thunk from 'redux-thunk'
 
 import initSentry from '../util/raven'
 import * as imports from './imports'
 import * as blacklist from './blacklist'
-import * as privacy from './privacy'
 import * as settings from './settings'
-import * as overviewPage from '../overview'
 import { reducer as onboarding } from '../overview/onboarding'
-import { reducer as sidebar } from 'src/sidebar-overlay/sidebar'
 import { reducer as deleteConfModal } from '../overview/delete-confirm-modal'
 import { reducer as results } from '../overview/results'
 import { reducer as searchBar } from '../overview/search-bar'
 import { reducer as tooltips } from '../overview/tooltips'
 import { reducer as customLists } from 'src/custom-lists'
+import { reducer as modals } from '../overview/modals/reducer'
 // Search filters in the sidebar
 import { reducer as searchFilters } from 'src/search-filters'
-import { reducer as sidebarLeft } from 'src/overview/sidebar-left'
+import { reducer as sidebar } from 'src/sidebar-overlay/sidebar'
+
 import * as notifications from '../notifications'
+import { authReducer } from '../authentication/redux'
 
 const rootReducer = combineReducers({
+    auth: authReducer,
     blacklist: blacklist.reducer,
     imports: imports.reducer,
-    privacy: privacy.reducer,
     settings: settings.reducer,
     onboarding,
-    sidebar,
     customLists,
     searchFilters,
-    sidebarLeft,
+    sidebar,
     notifications: notifications.reducer,
     deleteConfModal,
+    modals,
     searchBar,
     tooltips,
     results,
 })
-
-const rootEpic = combineEpics(...Object.values(overviewPage.epics))
 
 /**
  * Used to transform the redux state before sending to raven, filtering out
@@ -58,16 +55,11 @@ const stateTransformer = ({ overview, ...state }) => ({
 })
 
 export default function configureStore({ ReduxDevTools = undefined } = {}) {
-    const middlewares = [createEpicMiddleware(rootEpic), thunk]
+    const middlewares = [thunk]
 
-    initSentry(middlewares, stateTransformer)
+    initSentry({ reduxMiddlewares: middlewares, stateTransformer })
 
-    const enhancers = [
-        overviewPage.enhancer,
-        imports.enhancer,
-        settings.enhancer,
-        applyMiddleware(...middlewares),
-    ]
+    const enhancers = [imports.enhancer, applyMiddleware(...middlewares)]
 
     if (ReduxDevTools) {
         enhancers.push(ReduxDevTools.instrument())

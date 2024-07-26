@@ -1,8 +1,8 @@
 import React, { PureComponent } from 'react'
 import OnClickOutside from 'react-onclickoutside'
-import moment from 'moment'
-import { ButtonTooltip } from 'src/common-ui/components/'
 import classNames from 'classnames'
+import { TooltipBox } from '@worldbrain/memex-common/lib/common-ui/components/tooltip-box'
+import { formatTimestamp } from '@worldbrain/memex-common/lib/utils/date-time'
 
 const dashboardStyles = require('./filter-button.css')
 const sidebarStyles = require('./filter-button-sidebar.css')
@@ -15,10 +15,11 @@ interface Props {
     displayFilters?: React.ReactNode
     startDate?: number
     endDate?: number
-    togglePopup: React.MouseEventHandler<HTMLButtonElement>
+    togglePopup: React.MouseEventHandler<HTMLDivElement>
     showPopup: (value: boolean) => void
     clearFilters: () => void
     onFilterDel?: (args: any) => void
+    getRootElement: () => HTMLElement
 }
 
 interface State {
@@ -44,9 +45,9 @@ class FilterButton extends PureComponent<Props, State> {
         this.props.showPopup(false)
     }
 
-    private handleClearFilters: React.MouseEventHandler<
-        HTMLSpanElement
-    > = e => {
+    private handleClearFilters: React.MouseEventHandler<HTMLSpanElement> = (
+        e,
+    ) => {
         e.stopPropagation()
         this.props.clearFilters()
         this.props.showPopup(false)
@@ -59,10 +60,6 @@ class FilterButton extends PureComponent<Props, State> {
                     <span className={this.styles.renderCount}>
                         {this.state.typesCount + '/ 2'}
                     </span>
-                    <span
-                        className={this.styles.clearFilters}
-                        onClick={this.handleClearFilters}
-                    />
                 </React.Fragment>
             )
         } else if (
@@ -73,11 +70,13 @@ class FilterButton extends PureComponent<Props, State> {
                 <React.Fragment>
                     <div className={this.styles.dateBox}>
                         <span className={this.styles.detailsFilter}>
-                            {moment(this.props.startDate).format(
+                            {formatTimestamp(
+                                this.props.startDate,
                                 'MMM DD, YYYY',
                             ) +
                                 ' - ' +
-                                moment(this.props.endDate).format(
+                                formatTimestamp(
+                                    this.props.endDate,
                                     'MMM DD, YYYY',
                                 )}
                         </span>
@@ -92,15 +91,6 @@ class FilterButton extends PureComponent<Props, State> {
                             <span className={this.styles.renderCount}>
                                 {this.props.filteredItems.length}
                             </span>
-                            <ButtonTooltip
-                                tooltipText="Clear this Filter"
-                                position="bottom"
-                            >
-                                <span
-                                    className={this.styles.clearFilters}
-                                    onClick={this.handleClearFilters}
-                                />
-                            </ButtonTooltip>
                         </React.Fragment>
                     )}
                 </React.Fragment>
@@ -111,7 +101,7 @@ class FilterButton extends PureComponent<Props, State> {
     render() {
         return (
             <div>
-                <button
+                <div
                     className={classNames(this.styles.tagButton, {
                         [this.styles.tagButtonSelected]: this.props
                             .filteredItems.length,
@@ -123,26 +113,56 @@ class FilterButton extends PureComponent<Props, State> {
                     {this.props.source === 'Dates' ? (
                         <React.Fragment>
                             <div className={this.styles.dateTopBox}>
-                                {this.props.source}
                                 {(this.props.startDate ||
                                     this.props.endDate) && (
-                                    <span
-                                        className={this.styles.clearFilters}
-                                        onClick={this.handleClearFilters}
-                                    />
+                                    <TooltipBox
+                                        tooltipText="Clear this Filter"
+                                        placement="bottom"
+                                        getPortalRoot={
+                                            this.props.getRootElement
+                                        }
+                                    >
+                                        <span
+                                            className={this.styles.clearFilters}
+                                            onClick={this.handleClearFilters}
+                                        />
+                                    </TooltipBox>
                                 )}
+                                <span className={this.styles.pillTitle}>
+                                    {this.props.source}
+                                </span>
                             </div>
                             {this.renderCount()}
                         </React.Fragment>
                     ) : (
                         <div className={this.styles.pillContent}>
-                            {this.props.source}
-                            <span className={this.styles.renderCount}>
-                                {this.renderCount()}
-                            </span>
+                            {this.props.filteredItems.length > 0 ? (
+                                <div className={this.styles.filterItem}>
+                                    <TooltipBox
+                                        tooltipText="Clear this Filter"
+                                        placement="bottom"
+                                        getPortalRoot={
+                                            this.props.getRootElement
+                                        }
+                                    >
+                                        <span
+                                            className={this.styles.clearFilters}
+                                            onClick={this.handleClearFilters}
+                                        />
+                                    </TooltipBox>
+                                    <div className={this.styles.dateTopBox}>
+                                        <span className={this.styles.pillTitle}>
+                                            {this.props.source}
+                                        </span>
+                                        {this.renderCount()}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>{this.props.source}</div>
+                            )}
                         </div>
                     )}
-                </button>
+                </div>
                 {this.props.children}
             </div>
         )

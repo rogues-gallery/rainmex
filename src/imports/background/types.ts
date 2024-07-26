@@ -1,4 +1,4 @@
-import { Annotation } from 'src/direct-linking/types'
+import { Annotation } from 'src/annotations/types'
 
 export type ImportItemType = 'h' | 'b'
 
@@ -25,3 +25,8 @@ export interface Item {
 }
 
 export type ServiceParser = (doc: Document) => Item[]
+export type RecursiveNetscapeParser = (
+    element: Element,
+    items: Item[],
+    parentCollectionName: string,
+) => Item[]

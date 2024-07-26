@@ -5,6 +5,9 @@ import AbstractModel from './abstract-model'
 import Visit from './visit'
 import Bookmark from './bookmark'
 import Tag from './tag'
+import { DBGet } from '../types'
+import { normalizeUrl } from '@worldbrain/memex-common/lib/url-utils/normalize'
+import { initErrHandler } from '../storage'
 
 // Keep these properties as Symbols to avoid storing them to DB
 const visitsProp = Symbol('assocVisits')
@@ -23,7 +26,7 @@ export interface PageConstructorOptions {
     hostname: string
 
     // Display data
-    text: string
+    text?: string
     fullUrl: string
     fullTitle: string
     screenshotURI?: string
@@ -136,10 +139,10 @@ export default class Page extends AbstractModel
     }
 
     get tags() {
-        return this[tagsProp].map(tag => tag.name)
+        return this[tagsProp].map((tag) => tag.name)
     }
 
-    get visits() {
+    get visits(): Visit[] {
         return this[visitsProp]
     }
 
@@ -152,10 +155,6 @@ export default class Page extends AbstractModel
      */
     get shouldDelete() {
         return !this.hasBookmark && this[visitsProp].length === 0
-    }
-
-    get isStub() {
-        return this.text == null && (this.terms == null || !this.terms.length)
     }
 
     set screenshotURI(input: string) {
@@ -195,7 +194,7 @@ export default class Page extends AbstractModel
 
     addTag(name: string) {
         const index = (this[tagsProp] as Tag[]).findIndex(
-            tag => tag.name === name,
+            (tag) => tag.name === name,
         )
 
         if (index === -1) {
@@ -205,7 +204,7 @@ export default class Page extends AbstractModel
 
     delTag(name: string) {
         const index = (this[tagsProp] as Tag[]).findIndex(
-            tag => tag.name === name,
+            (tag) => tag.name === name,
         )
 
         if (index !== -1) {
@@ -230,7 +229,7 @@ export default class Page extends AbstractModel
      * @param {TermsIndexName} termProp The name of which terms state to update.
      * @param {string[]} terms Array of terms to merge with current state.
      */
-    _mergeTerms(termProp: TermsIndexName, terms: string[]) {
+    _mergeTerms(termProp: TermsIndexName, terms: string[] = []) {
         this[termProp] = !this[termProp]
             ? terms
             : [...new Set([...this[termProp], ...terms])]
@@ -269,8 +268,8 @@ export default class Page extends AbstractModel
             .collection('bookmarks')
             .findOneObject<Bookmark>({ url: this.url })
 
-        this[visitsProp] = visits.map(v => new Visit(this.db, v))
-        this[tagsProp] = tags.map(t => new Tag(this.db, t))
+        this[visitsProp] = visits.map((v) => new Visit(this.db, v))
+        this[tagsProp] = tags.map((t) => new Tag(this.db, t))
         this[bookmarkProp] = bookmark
             ? new Bookmark(this.db, bookmark)
             : undefined
@@ -286,7 +285,11 @@ export default class Page extends AbstractModel
     }
 
     async delete() {
-        return this.db.backend.executeBatch([
+        const annotations: Array<{ url: string }> = await this.db
+            .collection('annotations')
+            .findObjects({ pageUrl: this.url })
+        const annotationIds = annotations.map((a) => a.url)
+        return this.db.operation('executeBatch', [
             {
                 collection: 'visits',
                 operation: 'deleteObjects',
@@ -303,21 +306,92 @@ export default class Page extends AbstractModel
                 where: { url: this.url },
             },
             {
-                collection: 'pages',
-                operation: 'deleteObjects',
-                where: { url: this.url },
-            },
-            {
                 collection: 'pageListEntries',
                 operation: 'deleteObjects',
                 where: { pageUrl: this.url },
+            },
+            {
+                collection: 'pageMetadata',
+                operation: 'deleteObjects',
+                where: { normalizedPageUrl: this.url },
+            },
+            {
+                collection: 'pageEntities',
+                operation: 'deleteObjects',
+                where: { normalizedPageUrl: this.url },
+            },
+            {
+                collection: 'annotListEntries',
+                operation: 'deleteObjects',
+                where: { url: { $in: annotationIds } },
+            },
+            {
+                collection: 'annotationPrivacyLevels',
+                operation: 'deleteObjects',
+                where: { annotation: { $in: annotationIds } },
+            },
+            {
+                collection: 'images',
+                operation: 'deleteObjects',
+                where: { normalizedUrl: this.url },
             },
             {
                 collection: 'annotations',
                 operation: 'deleteObjects',
                 where: { pageUrl: this.url },
             },
+            {
+                collection: 'locators',
+                operation: 'deleteObjects',
+                where: { normalizedUrl: this.url },
+            },
+            {
+                // page should be deleted last so we can reliably delete all dependent data first during sync
+                collection: 'pages',
+                operation: 'deleteObjects',
+                where: { url: this.url },
+            },
         ])
+    }
+
+    private async saveNewVisits(): Promise<[number, string][]> {
+        const existingVisits = await this.db
+            .collection('visits')
+            .findObjects<Visit>({ url: this.url })
+
+        const existingVisitsTimeMap = new Map<number, Visit>()
+        existingVisits.forEach((v) => existingVisitsTimeMap.set(v.time, v))
+
+        return Promise.all<[number, string][]>(
+            this[visitsProp].map(
+                async (v: Visit): Promise<[number, string]> => {
+                    if (!v._hasChanged(existingVisitsTimeMap.get(v.time))) {
+                        return v.pk
+                    }
+
+                    return v.save()
+                },
+            ),
+        )
+    }
+
+    private async saveNewTags(): Promise<[string, string][]> {
+        const existingTags = await this.db
+            .collection('tags')
+            .findObjects<Tag>({ url: this.url })
+
+        const existingTagsNameMap = new Map<string, Tag>()
+        existingTags.forEach((t) => existingTagsNameMap.set(t.name, t))
+
+        return Promise.all<[string, string][]>(
+            this[tagsProp].map((t: Tag) => {
+                if (existingTagsNameMap.get(t.name)) {
+                    return [t.name, t.url]
+                }
+
+                return t.save()
+            }),
+        )
     }
 
     async save() {
@@ -331,6 +405,7 @@ export default class Page extends AbstractModel
                 const existing = await this.db
                     .collection('pages')
                     .findOneObject<Page>({ url: this.url })
+
                 if (existing) {
                     this._mergeTerms('terms', existing.terms)
                     this._mergeTerms('urlTerms', existing.urlTerms)
@@ -339,18 +414,17 @@ export default class Page extends AbstractModel
                     if (!this.screenshot && existing.screenshot) {
                         this.screenshot = existing.screenshot
                     }
+
+                    await this.db
+                        .collection('pages')
+                        .updateObjects({ url: this.url }, this.data)
+                } else {
+                    await this.db.collection('pages').createObject(this.data)
                 }
 
-                // Persist current page state
-                const { object } = await this.db
-                    .collection('pages')
-                    .createObject(this.data)
-
                 // Insert or update all associated visits + tags
-                const [visitIds, tagIds] = await Promise.all([
-                    Promise.all(this[visitsProp].map(visit => visit.save())),
-                    Promise.all(this[tagsProp].map(tag => tag.save())),
-                ])
+                const visitIds = await this.saveNewVisits()
+                const tagIds = await this.saveNewTags()
 
                 // Either try to update or delete the assoc. bookmark
                 if (this[bookmarkProp] != null) {
@@ -375,8 +449,24 @@ export default class Page extends AbstractModel
                     }),
                 ])
 
-                return object.url
+                return this.url
             },
         )
     }
+}
+
+export const getPage = (getDb: DBGet) => async (url: string) => {
+    const normalizedUrl = normalizeUrl(url, {})
+    const db = await getDb()
+    const page = await db
+        .collection('pages')
+        .findOneObject<Page>({ url: normalizedUrl })
+        .catch(initErrHandler())
+
+    if (page == null) {
+        return null
+    }
+    const result = new Page(db, page)
+    await result.loadRels()
+    return result
 }

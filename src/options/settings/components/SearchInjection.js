@@ -1,16 +1,16 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-
-import styles from './settings.css'
+import SettingSection from '@worldbrain/memex-common/lib/common-ui/components/setting-section'
 
 const SearchInjection = ({ children }) => {
     return (
-        <div className={styles.container}>
-            <h1 className={styles.header}>
-                Show Memex Results in Search Engines
-            </h1>
+        <SettingSection
+            title={'Search Engine Integration'}
+            icon={'searchIcon'}
+            description={'Show Memex results alongside your web search results'}
+        >
             {children}
-        </div>
+        </SettingSection>
     )
 }
 

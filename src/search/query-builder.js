@@ -1,6 +1,8 @@
-import transformPageText from 'src/util/transform-page-text'
+import { HASH_TAG_PATTERN } from '@worldbrain/memex-common/lib/storage/constants'
+import { DEFAULT_TERM_SEPARATOR } from '@worldbrain/memex-stemmer/lib/constants'
+import { transformPageText } from '@worldbrain/memex-stemmer/lib/transform-page-text'
 import * as constants from '../overview/search-bar/constants'
-import { DEFAULT_TERM_SEPARATOR } from './util'
+import { splitInputIntoTerms } from '../overview/search-bar/utils'
 
 class QueryBuilder {
     /**
@@ -11,7 +13,7 @@ class QueryBuilder {
     /**
      * Pattern to match hashtags - spaces can be represented via '+'.
      */
-    static HASH_TAG_PATTERN = constants.HASH_TAG_PATTERN
+    static HASH_TAG_PATTERN = HASH_TAG_PATTERN
 
     /**
      * Matches a given excluded domain or term query term. Hyphen must be before some word/s.
@@ -29,11 +31,7 @@ class QueryBuilder {
      * @param {string} tag
      * @return {string}
      */
-    static stripTagPattern = tag =>
-        tag
-            .slice(1)
-            .split('+')
-            .join(' ')
+    static stripTagPattern = (tag) => tag.slice(1).split('+').join(' ')
 
     /**
      * Splits up an input string into terms.
@@ -43,10 +41,7 @@ class QueryBuilder {
      * @return {string[]}
      */
     static getTermsFromInput = (input, delim = DEFAULT_TERM_SEPARATOR) =>
-        input
-            .toLowerCase()
-            .trim()
-            .split(delim)
+        input.toLowerCase().trim().split(delim)
 
     skip = 0
     limit = 10
@@ -70,7 +65,11 @@ class QueryBuilder {
             lists: [...this.lists],
             isBadTerm: this.isBadTerm,
             // Can't do a terms exclusion without some terms already defined
-            isInvalidSearch: this.queryExclude.size && !this.query.size,
+            isInvalidSearch:
+                this.queryExclude.size &&
+                !this.query.size &&
+                !this.endDate &&
+                !this.startDate,
         }
     }
 
@@ -104,7 +103,7 @@ class QueryBuilder {
         return this
     }
 
-    _filterGen = filterName => (dataToAdd = []) => {
+    _filterGen = (filterName) => (dataToAdd = []) => {
         for (const data of dataToAdd) {
             this[filterName].add(data)
         }
@@ -158,7 +157,7 @@ class QueryBuilder {
         }
 
         // STAGE 1: Filter out tags/domains
-        const terms = QueryBuilder.getTermsFromInput(input, /\s+/)
+        const terms = splitInputIntoTerms(input)
         const { include, exclude } = this._extractTermsPatterns(terms)
 
         // Short-circuit if all terms filtered out as tags/domains
@@ -167,12 +166,8 @@ class QueryBuilder {
         }
 
         // STAGE 2: push through index text-processing logic
-        let { text: textInclude } = transformPageText({
-            text: include.join(' '),
-        })
-        let { text: textExclude } = transformPageText({
-            text: exclude.join(' '),
-        })
+        let { text: textInclude } = transformPageText(include.join(' '))
+        let { text: textExclude } = transformPageText(exclude.join(' '))
 
         textInclude = textInclude.trim()
         textExclude = textExclude.trim()
@@ -185,13 +180,13 @@ class QueryBuilder {
 
         if (textInclude.length) {
             // Add post-processed terms to `query` Set
-            QueryBuilder.getTermsFromInput(textInclude).forEach(term =>
+            QueryBuilder.getTermsFromInput(textInclude).forEach((term) =>
                 this.query.add(term),
             )
         }
 
         if (textExclude.length) {
-            QueryBuilder.getTermsFromInput(textExclude).forEach(term =>
+            QueryBuilder.getTermsFromInput(textExclude).forEach((term) =>
                 this.queryExclude.add(term),
             )
         }

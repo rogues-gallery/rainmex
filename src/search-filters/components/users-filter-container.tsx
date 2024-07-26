@@ -4,8 +4,8 @@ import { RootState } from 'src/options/types'
 import { MapDispatchToProps } from 'src/util/types'
 import { actions, selectors } from 'src/search-filters'
 
-import { Tooltip } from 'src/common-ui/components'
-import { IndexDropdown } from 'src/common-ui/containers'
+import Tooltip from 'src/common-ui/components/tooltip'
+import IndexDropdown from 'src/common-ui/containers/IndexDropdown'
 import FilterButton from './filter-button'
 import { User } from 'src/social-integration/types'
 import { selectors as results } from 'src/overview/results'
@@ -36,6 +36,7 @@ interface DispatchProps {
 interface OwnProps {
     env: 'inpage' | 'overview'
     tooltipPosition: string
+    getRootElement: () => HTMLElement
 }
 
 type Props = StateProps & DispatchProps & OwnProps
@@ -43,7 +44,7 @@ type Props = StateProps & DispatchProps & OwnProps
 interface State {}
 
 class UsersFilter extends PureComponent<Props, State> {
-    private togglePopup: React.MouseEventHandler<HTMLButtonElement> = e => {
+    private togglePopup: React.MouseEventHandler = (e) => {
         if (this.props.env === 'inpage' && !this.props.userFilterDropdown) {
             this.props.resetFilterPopups()
         }
@@ -67,6 +68,7 @@ class UsersFilter extends PureComponent<Props, State> {
                 showPopup={this.props.setUserFilter}
                 clearFilters={this.props.clearUserFilters}
                 disableOnClickOutside={this.props.env === 'inpage'}
+                getRootElement={null}
             >
                 {this.props.userFilterDropdown && (
                     <Tooltip
@@ -110,23 +112,20 @@ const mapDispatchToProps: MapDispatchToProps<
     DispatchProps,
     OwnProps,
     RootState
-> = dispatch => ({
-    addIncUserFilter: user => {
+> = (dispatch) => ({
+    addIncUserFilter: (user) => {
         dispatch(actions.addIncUserFilter(user))
         // dispatch(actions.fetchSuggestedUsers())
     },
-    delIncUserFilter: user => dispatch(actions.delIncUserFilter(user)),
-    addExcUserFilter: user => dispatch(actions.addExcUserFilter(user)),
-    delExcUserFilter: user => dispatch(actions.delExcUserFilter(user)),
+    delIncUserFilter: (user) => dispatch(actions.delIncUserFilter(user)),
+    addExcUserFilter: (user) => dispatch(actions.addExcUserFilter(user)),
+    delExcUserFilter: (user) => dispatch(actions.delExcUserFilter(user)),
     clearUserFilters: () => {
         dispatch(actions.setIncUserFilters([]))
         dispatch(actions.setExcUserFilters([]))
     },
-    setUserFilter: value => dispatch(actions.setUserFilter(value)),
+    setUserFilter: (value) => dispatch(actions.setUserFilter(value)),
     resetFilterPopups: () => dispatch(actions.resetFilterPopups()),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(UsersFilter)
+export default connect(mapStateToProps, mapDispatchToProps)(UsersFilter)

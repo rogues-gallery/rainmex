@@ -1,28 +1,23 @@
-import { Alarms } from 'webextension-polyfill-ts'
+import type { Alarms } from 'webextension-polyfill'
 
-import BackgroundScript from '.'
-import { QUOTA_USAGE_WARN_PERC } from './constants'
-import { EVENT_NOTIFS } from 'src/notifications/notifications'
-
-export interface AlarmConfig extends Alarms.CreateAlarmInfoType {
-    listener: (bg: BackgroundScript) => void
+export type AlarmJob = {
+    /** Can be null if the alarm job is to be scheduled dynamically. */
+    alarmDefinition: Alarms.CreateAlarmInfoType | null
+    job: () => Promise<void>
 }
 
-export interface AlarmsConfig {
-    [key: string]: AlarmConfig
-}
-
-export const storageQuotaCheck: AlarmConfig = {
-    periodInMinutes: 180,
-    async listener(bg) {
-        const { usage, quota } = await navigator.storage.estimate()
-        const percUsed = Math.trunc((usage / quota) * 100)
-
-        if (percUsed >= QUOTA_USAGE_WARN_PERC) {
-            await bg.sendNotification(EVENT_NOTIFS.quota_warning.id)
+export function setupAlarms(
+    alarmsAPI: Alarms.Static,
+    jobs: { [name: string]: AlarmJob },
+) {
+    for (let [name, { alarmDefinition }] of Object.entries(jobs)) {
+        if (alarmDefinition) {
+            alarmsAPI.create(name, alarmDefinition)
         }
-    },
+    }
+    alarmsAPI.onAlarm.addListener(async ({ name }) => {
+        if (name in jobs) {
+            await jobs[name].job()
+        }
+    })
 }
-
-// Schedule alarm configs to run in here:
-export default { storageQuotaCheck } as AlarmsConfig

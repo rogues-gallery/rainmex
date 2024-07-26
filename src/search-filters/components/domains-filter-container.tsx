@@ -4,8 +4,8 @@ import { RootState } from 'src/options/types'
 import { MapDispatchToProps } from 'src/util/types'
 import { actions, selectors } from 'src/search-filters'
 
-import { Tooltip } from 'src/common-ui/components'
-import { IndexDropdown } from 'src/common-ui/containers'
+import Tooltip from 'src/common-ui/components/tooltip'
+import IndexDropdown from 'src/common-ui/containers/IndexDropdown'
 import FilterButton from './filter-button'
 
 import cx from 'classnames'
@@ -40,7 +40,7 @@ type Props = StateProps & DispatchProps & OwnProps
 interface State {}
 
 class DomainsPopup extends PureComponent<Props, State> {
-    private togglePopup: React.MouseEventHandler<HTMLButtonElement> = e => {
+    private togglePopup: React.MouseEventHandler = (e) => {
         if (this.props.env === 'inpage' && !this.props.domainFilterDropdown) {
             this.props.resetFilterPopups()
         }
@@ -85,6 +85,7 @@ class DomainsPopup extends PureComponent<Props, State> {
                 clearFilters={this.props.clearDomainFilters}
                 onFilterDel={this.toggleDomainFilter}
                 disableOnClickOutside={this.props.env === 'inpage'}
+                getRootElement={null}
             >
                 {this.props.domainFilterDropdown && (
                     <Tooltip
@@ -130,15 +131,18 @@ const mapDispatchToProps: MapDispatchToProps<
     DispatchProps,
     OwnProps,
     RootState
-> = dispatch => ({
-    setDomainFilter: value => dispatch(actions.setDomainFilter(value)),
-    addIncDomainFilter: domain => {
+> = (dispatch) => ({
+    setDomainFilter: (value) => dispatch(actions.setDomainFilter(value)),
+    addIncDomainFilter: (domain) => {
         dispatch(actions.addIncDomainFilter(domain))
         dispatch(actions.fetchSuggestedDomains())
     },
-    delIncDomainFilter: domain => dispatch(actions.delIncDomainFilter(domain)),
-    addExcDomainFilter: domain => dispatch(actions.addExcDomainFilter(domain)),
-    delExcDomainFilter: domain => dispatch(actions.delExcDomainFilter(domain)),
+    delIncDomainFilter: (domain) =>
+        dispatch(actions.delIncDomainFilter(domain)),
+    addExcDomainFilter: (domain) =>
+        dispatch(actions.addExcDomainFilter(domain)),
+    delExcDomainFilter: (domain) =>
+        dispatch(actions.delExcDomainFilter(domain)),
     clearDomainFilters: () => {
         dispatch(actions.setIncDomainFilters([]))
         dispatch(actions.setExcDomainFilters([]))
@@ -146,7 +150,4 @@ const mapDispatchToProps: MapDispatchToProps<
     resetFilterPopups: () => dispatch(actions.resetFilterPopups()),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(DomainsPopup)
+export default connect(mapStateToProps, mapDispatchToProps)(DomainsPopup)

@@ -1,19 +1,19 @@
 import { createAction } from 'redux-act'
 
-import { getTooltipState, setTooltipState } from '../../content-tooltip/utils'
-import { remoteFunction, runInTab } from '../../util/webextensionRPC'
+import {
+    getTooltipState,
+    setTooltipState,
+} from '../../in-page-ui/tooltip/utils'
+import { runInTabViaBg } from '../../util/webextensionRPC'
 import { Thunk } from '../types'
 import * as selectors from './selectors'
 import * as popup from '../selectors'
-import { EVENT_NAMES } from '../../analytics/internal/constants'
-import { RibbonInteractionsInterface } from 'src/sidebar-overlay/ribbon/types'
-import { TooltipInteractionInterface } from 'src/content-tooltip/types'
-
-const processEventRPC = remoteFunction('processEvent')
+import analytics from 'src/analytics'
+import { InPageUIContentScriptRemoteInterface } from 'src/in-page-ui/content_script/types'
 
 export const setTooltipFlag = createAction<boolean>('tooltip/setTooltipFlag')
 
-export const init: () => Thunk = () => async dispatch => {
+export const init: () => Thunk = () => async (dispatch) => {
     const sidebar = await getTooltipState()
     dispatch(setTooltipFlag(sidebar))
 }
@@ -25,14 +25,15 @@ export const toggleTooltipFlag: () => Thunk = () => async (
     const state = getState()
     const wasEnabled = selectors.isTooltipEnabled(state)
 
-    processEventRPC({
-        type: wasEnabled
-            ? EVENT_NAMES.DISABLE_TOOLTIP_POPUP
-            : EVENT_NAMES.ENABLE_TOOLTIP_POPUP,
-    })
+    if (wasEnabled) {
+        analytics.trackEvent({
+            category: 'InPageTooltip',
+            action: 'disableTooltipViaPopup',
+        })
+    }
 
-    await setTooltipState(!wasEnabled)
     dispatch(setTooltipFlag(!wasEnabled))
+    await setTooltipState(!wasEnabled)
 
     const isLoggable = popup.isLoggable(state)
     if (!isLoggable) {
@@ -41,12 +42,22 @@ export const toggleTooltipFlag: () => Thunk = () => async (
 
     const tabId = popup.tabId(state)
     if (wasEnabled) {
-        await runInTab<TooltipInteractionInterface>(tabId).removeTooltip()
-        await runInTab<RibbonInteractionsInterface>(tabId).updateRibbon()
+        await runInTabViaBg<InPageUIContentScriptRemoteInterface>(
+            tabId,
+        ).removeTooltip()
+        await runInTabViaBg<InPageUIContentScriptRemoteInterface>(
+            tabId,
+        ).updateRibbon()
     } else {
-        await runInTab<TooltipInteractionInterface>(tabId).insertTooltip()
-        await runInTab<TooltipInteractionInterface>(tabId).showContentTooltip()
-        await runInTab<RibbonInteractionsInterface>(tabId).updateRibbon()
+        await runInTabViaBg<InPageUIContentScriptRemoteInterface>(
+            tabId,
+        ).insertTooltip()
+        await runInTabViaBg<InPageUIContentScriptRemoteInterface>(
+            tabId,
+        ).showContentTooltip()
+        await runInTabViaBg<InPageUIContentScriptRemoteInterface>(
+            tabId,
+        ).updateRibbon()
     }
 }
 
@@ -60,10 +71,12 @@ export const showTooltip: () => Thunk = () => async (dispatch, getState) => {
 
     const isEnabled = await getTooltipState()
     if (!isEnabled) {
-        await runInTab<TooltipInteractionInterface>(tabId).insertTooltip({
-            override: true,
-        })
+        await runInTabViaBg<InPageUIContentScriptRemoteInterface>(
+            tabId,
+        ).insertTooltip()
     }
 
-    await runInTab<TooltipInteractionInterface>(tabId).showContentTooltip()
+    await runInTabViaBg<InPageUIContentScriptRemoteInterface>(
+        tabId,
+    ).showContentTooltip()
 }

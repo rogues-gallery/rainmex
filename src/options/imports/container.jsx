@@ -2,23 +2,25 @@ import React, { Component } from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
-
-import ButtonTooltip from '../../common-ui/components/button-tooltip'
 import * as selectors from './selectors'
 import * as actions from './actions'
 import * as constants from './constants'
-import { ProgressBar } from 'src/common-ui/components'
+import ProgressBar from 'src/common-ui/components/ProgressBar'
 import Import from './components/Import'
 import EstimatesTable from './components/EstimatesTable'
 import ProgressTable from './components/ProgressTable'
-import ActionButton from './components/ActionButton'
 import ButtonBar from './components/ButtonBar'
 import DownloadDetails from './components/DownloadDetails'
 import DownloadDetailsRow from './components/DownloadDetailsRow'
 import StatusReport from './components/StatusReport'
-// import ShowDownloadDetails from './components/ShowDownloadDetails'
 import { acts as searchBarActs } from 'src/overview/search-bar'
-import styles from './components/ActionButton.css'
+import { OPTIONS_URL } from 'src/constants'
+import AdvSettings from '../imports/components/AdvSettingsContainer'
+import { PrimaryAction } from '@worldbrain/memex-common/lib/common-ui/components/PrimaryAction'
+import Icon from '@worldbrain/memex-common/lib/common-ui/components/icon'
+import * as icons from 'src/common-ui/components/design-library/icons'
+import styled from 'styled-components'
+import { TooltipBox } from '@worldbrain/memex-common/lib/common-ui/components/tooltip-box'
 
 class ImportContainer extends Component {
     static propTypes = {
@@ -45,8 +47,8 @@ class ImportContainer extends Component {
         super(props)
         props.boundActions.init()
 
-        this.flipCancelState = waitingOnCancelConfirm =>
-            this.setState(state => ({ ...state, waitingOnCancelConfirm }))
+        this.flipCancelState = (waitingOnCancelConfirm) =>
+            this.setState((state) => ({ ...state, waitingOnCancelConfirm }))
     }
 
     state = {
@@ -63,23 +65,23 @@ class ImportContainer extends Component {
         this.props.search()
     }
 
-    setCancelState = waitingOnCancelConfirm =>
-        this.setState(state => ({ ...state, waitingOnCancelConfirm }))
+    setCancelState = (waitingOnCancelConfirm) =>
+        this.setState((state) => ({ ...state, waitingOnCancelConfirm }))
 
-    handleDetailsRowClick = rowId => () =>
-        this.setState(state => ({
+    handleDetailsRowClick = (rowId) => () =>
+        this.setState((state) => ({
             ...state,
             activeRow: rowId,
             waitingOnCancelConfirm: false,
         }))
 
-    handleBtnClick = action => e => {
+    handleBtnClick = (action) => (e) => {
         e.preventDefault()
         this.setCancelState(false)
         action()
     }
 
-    handleCancelBtnClick = e => {
+    handleCancelBtnClick = (e) => {
         e.preventDefault()
 
         // Only cancel running import after second confirmation
@@ -91,34 +93,48 @@ class ImportContainer extends Component {
         }
     }
 
-    handleEstTableCheck = type => () =>
+    handleEstTableCheck = (type) => () =>
         this.props.boundActions.toggleAllowType(type)
 
-    setAllowType = type => () => this.props.boundActions.setAllowType(type)
+    setAllowType = (type) => () => this.props.boundActions.setAllowType(type)
 
     renderHelpText = () =>
         this.state.waitingOnCancelConfirm ? 'Press cancel again to confirm' : ''
 
-    handleInputFile = event => {
+    handleInputFile = (event) => {
         const input = event.target
+
         if (!input.files[0]) {
             return
         }
         const file = input.files[0]
-        this.props.boundActions.prepareImport()
-        this.props.boundActions.setBlobUrl(URL.createObjectURL(file))
-        setTimeout(() => this.props.recalcEsts(), 500)
+
+        const reader = new FileReader()
+        reader.onloadend = () => {
+            this.props.boundActions.setBlobUrl(reader.result)
+        }
+        reader.readAsDataURL(file)
+
+        setTimeout(() => this.props.recalcEsts(), 3000)
     }
 
-    renderCancelButton = () => (
-        <ActionButton
-            handleClick={this.handleCancelBtnClick}
-            isHidden={!this.props.shouldRenderProgress}
-            customClass={'cancel'}
-        >
-            Cancel
-        </ActionButton>
-    )
+    renderCancelButton() {
+        if (this.props.shouldRenderProgress) {
+            return (
+                <PrimaryAction
+                    icon="removeX"
+                    type="tertiary"
+                    size="medium"
+                    label={
+                        this.state.waitingOnCancelConfirm
+                            ? 'Confirm Cancel'
+                            : 'Cancel'
+                    }
+                    onClick={this.handleCancelBtnClick}
+                />
+            )
+        }
+    }
 
     renderImportButton() {
         const {
@@ -138,47 +154,59 @@ class ImportContainer extends Component {
 
         if (this.props.isRunning) {
             return (
-                <ActionButton
-                    customClass={'pause'}
-                    handleClick={this.handleBtnClick(boundActions.pause)}
-                >
-                    Pause
-                </ActionButton>
+                <PrimaryAction
+                    onClick={this.handleBtnClick(boundActions.pause)}
+                    label={'Pause Import'}
+                    type={'secondary'}
+                    size={'medium'}
+                    icon={'pause'}
+                />
             )
         }
 
         if (this.props.isPaused) {
             return (
-                <ActionButton
-                    customClass={'resume'}
-                    handleClick={this.handleBtnClick(boundActions.resume)}
-                >
-                    Resume
-                </ActionButton>
+                <PrimaryAction
+                    onClick={this.handleBtnClick(boundActions.resume)}
+                    label={'Resume Import'}
+                    type={'secondary'}
+                    size={'medium'}
+                    icon={'play'}
+                />
             )
         }
 
         if (this.props.isStopped) {
             return (
-                <ActionButton
-                    customClass={'newImport'}
-                    handleClick={this.handleBtnClick(boundActions.finish)}
-                >
-                    Start new import
-                </ActionButton>
+                <FinishBntContainer>
+                    <PrimaryAction
+                        onClick={this.handleBtnClick(boundActions.finish)}
+                        label={'Start new import'}
+                        type={'forth'}
+                        size={'medium'}
+                        icon={'reload'}
+                    />
+                    <PrimaryAction
+                        onClick={() => window.open(`${OPTIONS_URL}#/overview`)}
+                        label={' Go to dashboard'}
+                        type={'primary'}
+                        size={'medium'}
+                        icon={'searchIcon'}
+                    />
+                </FinishBntContainer>
             )
         }
 
         // Idle state case
         return (
-            <ActionButton
-                handleClick={this.handleBtnClick(boundActions.start)}
+            <PrimaryAction
+                onClick={this.handleBtnClick(boundActions.start)}
                 isDisabled={isDisabled}
-                customClass={'startImport'}
-                type="submit"
-            >
-                Start import
-            </ActionButton>
+                type="primary"
+                icon={'play'}
+                label={'Start Import'}
+                size={'medium'}
+            />
         )
     }
 
@@ -218,7 +246,7 @@ class ImportContainer extends Component {
     }
 
     onDetailsRowClick(rowId) {
-        this.setState(state => ({
+        this.setState((state) => ({
             ...state,
             activeRow: rowId,
             waitingOnCancelConfirm: false,
@@ -228,20 +256,20 @@ class ImportContainer extends Component {
     getDetailFilterHandlers() {
         const { boundActions } = this.props
 
-        const updateFilterState = filter => () => {
+        const updateFilterState = (filter) => () => {
             this.onDetailsRowClick(-1) // Simulate anti-click to reset state of active details row
             boundActions.filterDownloadDetails(filter)
         }
 
         return {
-            all: e =>
+            all: (e) =>
                 this.onButtonClick(e, updateFilterState(constants.FILTERS.ALL)),
-            succ: e =>
+            succ: (e) =>
                 this.onButtonClick(
                     e,
                     updateFilterState(constants.FILTERS.SUCC),
                 ),
-            fail: e =>
+            fail: (e) =>
                 this.onButtonClick(
                     e,
                     updateFilterState(constants.FILTERS.FAIL),
@@ -252,18 +280,28 @@ class ImportContainer extends Component {
     renderProgressTable = () => (
         <React.Fragment>
             <ProgressBar progress={this.props.progressPercent} />
-            <ProgressTable {...this.props} />
+            <ProgressTable
+                {...this.props}
+                changeShowDetails={this.props.boundActions.showDownloadDetails}
+                showDownloadDetails={this.props.showDownloadDetails}
+            />
             {/* <ShowDownloadDetails
                 changeShowDetails={this.props.boundActions.showDownloadDetails}
                 showDownloadDetails={this.props.showDownloadDetails}
             /> */}
             {this.props.showDownloadDetails && (
-                <DownloadDetails
-                    filterHandlers={this.getDetailFilterHandlers()}
-                    filter={this.props.downloadDataFilter}
-                >
-                    {this.renderDownloadDetailsRows()}
-                </DownloadDetails>
+                <>
+                    <SectionTitleSmall />
+                    {/* <InfoText>
+                    Please report URLs that fail but should not, so we can improve the import process.
+                </InfoText> */}
+                    <DownloadDetails
+                        filterHandlers={this.getDetailFilterHandlers()}
+                        filter={this.props.downloadDataFilter}
+                    >
+                        {this.renderDownloadDetailsRows()}
+                    </DownloadDetails>
+                </>
             )}
         </React.Fragment>
     )
@@ -274,9 +312,9 @@ class ImportContainer extends Component {
                 {...this.props}
                 changeShowDetails={this.props.boundActions.showDownloadDetails}
             >
-                {/* {this.props.showDownloadDetails
-                    ? 'Hide Details'
-                    : 'Show Details'} */}
+                {this.props.showDownloadDetails
+                    ? 'Hide Error Details'
+                    : 'Show Error Details'}
             </StatusReport>
             {this.props.showDownloadDetails && (
                 <DownloadDetails
@@ -288,6 +326,14 @@ class ImportContainer extends Component {
             )}
         </React.Fragment>
     )
+
+    renderSettings() {
+        if (!this.props.shouldRenderEsts) {
+            return
+        }
+
+        return <AdvSettings />
+    }
 
     renderMainTable() {
         if (this.props.shouldRenderEsts) {
@@ -305,20 +351,20 @@ class ImportContainer extends Component {
         <ButtonBar helpText={this.renderHelpText()} {...this.props}>
             {this.props.shouldRenderEsts && (
                 <React.Fragment>
-                    <ButtonTooltip
+                    <TooltipBox
                         tooltipText="Recalculate Numbers"
-                        position="bottom"
+                        placement="bottom"
+                        getPortalRoot={null}
                     >
-                        <ActionButton
-                            handleClick={this.props.recalcEsts}
-                            customClass="recalc"
-                        >
-                            <span className={styles.reCalc} />
-                        </ActionButton>
-                    </ButtonTooltip>
+                        <Icon
+                            onClick={this.props.recalcEsts}
+                            heightAndWidth="30px"
+                            filePath={icons.reload}
+                        />
+                    </TooltipBox>
                 </React.Fragment>
             )}
-            {this.renderCancelButton()}
+            {this.props.isRunning && this.renderCancelButton()}
             {this.renderImportButton()}
         </ButtonBar>
     )
@@ -327,13 +373,14 @@ class ImportContainer extends Component {
         return (
             <Import {...this.props}>
                 {this.renderMainTable()}
+                {this.renderSettings()}
                 {this.renderButtonBar()}
             </Import>
         )
     }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
     isRunning: selectors.isRunning(state),
     isPaused: selectors.isPaused(state),
     isStopped: selectors.isStopped(state),
@@ -354,13 +401,27 @@ const mapStateToProps = state => ({
     downloadDataFilter: selectors.downloadDataFilter(state),
 })
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
     boundActions: bindActionCreators(actions, dispatch),
     recalcEsts: () => dispatch(actions.recalcEsts()),
     search: () => dispatch(searchBarActs.search({ overwrite: true })),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(ImportContainer)
+const FinishBntContainer = styled.div`
+    display: grid;
+    grid-auto-flow: column;
+    grid-gap: 5px;
+    align-items: center;
+`
+
+const SectionTitleSmall = styled.div`
+    color: ${(props) => props.theme.colors.darkerText};
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid ${(props) => props.theme.colors.greyScale3};
+`
+
+export default connect(mapStateToProps, mapDispatchToProps)(ImportContainer)

@@ -1,63 +1,48 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import ButtonTooltip from 'src/common-ui/components/button-tooltip'
-import { IMPORT_TYPE as TYPE, IMPORT_SERVICES as SERVICES } from '../constants'
-import { Checkbox } from 'src/common-ui/components'
+import { IMPORT_TYPE as TYPE } from '../constants'
+import Checkbox from 'src/common-ui/components/Checkbox'
+import styled from 'styled-components'
 
 import Concurrency from './Concurrency'
-import PrevFailedCheckbox from './PrevFailedCheckbox'
 
 import styles from './AdvSettings.css'
 
 const AdvSettings = ({ onPrevFailedToggle, prevFailedValue, ...props }) => (
-    <section className={styles.container}>
-        <div className={styles.title}> 
-            SETTINGS
-        </div>
+    <Container>
+        <SectionTitleSmall>Import Settings</SectionTitleSmall>
         <div className={styles.advFunctionality}>
             <ul className={styles.settingsList}>
-                {(props.allowTypes[TYPE.OTHERS] === SERVICES.POCKET ||
-                    props.allowTypes[TYPE.OTHERS] === SERVICES.NETSCAPE) && (
-                    <li className={styles.settingsListItem}>
-                        <Checkbox
-                                id="star-imports"
-                                handleChange={props.onBookmarImportsToggle}
-                                isChecked={props.bookmarkImports}
-                        >
-                            <label htmlFor="star-imports">
-                                'Star' all imported urls
-                             </label>
-                        </Checkbox>
-                    </li>
-                )}
-                <li className={styles.settingsListItem}>
-                    <ButtonTooltip
-                        tooltipText="Fast, but not full-text searchable"
-                        position="bottom"
-                    >
-                        <Checkbox
-                            id="index-imports"
-                            handleChange={props.onIndexTitleToggle}
-                            isChecked={props.indexTitle}
-                        >
-                            <label htmlFor="index-imports">
-                                Only import title, urls and metadata
-                            </label>
-                        </Checkbox>
-                    </ButtonTooltip>
-                </li>
-                <li className={styles.settingsListItem}>
-                    <Concurrency {...props} />
-                </li>
-                <li className={styles.settingsListItem}>
-                    <PrevFailedCheckbox
+                <SettingsListItem onClick={() => props.onIndexTitleToggle()}>
+                    <Checkbox
+                        id="index-imports"
+                        handleChange={props.onIndexTitleToggle}
+                        isChecked={props.indexTitle}
+                        label={'Only import title, urls and metadata'}
+                        subLabel={'This setting skips the full-text indexing.'}
+                    />
+                </SettingsListItem>
+                <SettingsListItem onClick={() => onPrevFailedToggle}>
+                    <Checkbox
+                        id="process-failed"
+                        // handleChange={onPrevFailedToggle}
+                        isChecked={prevFailedValue}
+                        label={'Include previously failed urls'}
+                        subLabel={
+                            'Retry also urls that have previously been unsuccessful'
+                        }
+                    />
+                    {/* <PrevFailedCheckbox
                         checked={prevFailedValue}
                         onChange={onPrevFailedToggle}
-                    />
-                </li>
+                    /> */}
+                </SettingsListItem>
+                <SettingsListItem>
+                    <Concurrency {...props} />
+                </SettingsListItem>
             </ul>
         </div>
-    </section>
+    </Container>
 )
 
 AdvSettings.propTypes = {
@@ -66,12 +51,42 @@ AdvSettings.propTypes = {
         [TYPE.BOOKMARK]: PropTypes.bool.isRequired,
         [TYPE.OTHERS]: PropTypes.string.isRequired,
     }).isRequired,
-    bookmarkImports: PropTypes.bool.isRequired,
     indexTitle: PropTypes.bool.isRequired,
     onPrevFailedToggle: PropTypes.func.isRequired,
     prevFailedValue: PropTypes.bool.isRequired,
-    onBookmarImportsToggle: PropTypes.func.isRequired,
     onIndexTitleToggle: PropTypes.func.isRequired,
 }
+
+const Container = styled.div`
+    margin-top: 24px;
+    border-top: 1px solid ${(props) => props.theme.colors.greyScale2};
+    padding-top: 20px;
+`
+
+const SettingsListItem = styled.div`
+    display: grid;
+    grid-gap: 18px;
+    grid-auto-flow: column;
+    align-items: center;
+    justify-content: flex-start;
+    height: 60px;
+    width: fill-available;
+    margin-left: -10px;
+    padding: 10px;
+    border-radius: 8px;
+    width: fill-available;
+    cursor: pointer;
+
+    &:hover {
+        outline: 1px solid ${(props) => props.theme.colors.greyScale3};
+    }
+`
+
+const SectionTitleSmall = styled.div`
+    color: ${(props) => props.theme.colors.greyScale6};
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+`
 
 export default AdvSettings

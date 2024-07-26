@@ -2,16 +2,22 @@ export const PAUSE_STORAGE_KEY = 'is-logging-paused'
 
 export function isLoggable({ url }) {
     // Just remember http(s) pages, ignoring data uris, newtab, ...
-    const loggableUrlPattern = /^https?:\/\//
+    const loggableUrlPatterns = [/^https?:\/\/.+$/, /file=.+(\.pdf)$/]
     const urlEndings = ['.svg', '.jpg', '.png', '.jpeg', '.gif']
 
     // Ignore all pages that are image files
-    for (let i = 0; i < urlEndings.length; i++) {
-        if (url.endsWith(urlEndings[i])) {
+    for (const urlEnding of urlEndings) {
+        if (url.endsWith(urlEnding)) {
             return false
         }
     }
-    return loggableUrlPattern.test(url)
+
+    for (const pattern of loggableUrlPatterns) {
+        if (pattern.test(url)) {
+            return true
+        }
+    }
+    return false
 }
 
 export const getPauseState = async () => {

@@ -1,10 +1,10 @@
 import React from 'react'
 import cx from 'classnames'
 import PropTypes from 'prop-types'
-import ButtonTooltip from 'src/common-ui/components/button-tooltip'
 import styles from './CreateListForm.css'
+import { TooltipBox } from '@worldbrain/memex-common/lib/common-ui/components/tooltip-box'
 
-const CreateListForm = props => (
+const CreateListForm = (props) => (
     <div>
         <form
             className={styles.createListForm}
@@ -15,7 +15,7 @@ const CreateListForm = props => (
                 name="listName"
                 type="text"
                 autoComplete="off"
-                placeholder="List Name"
+                placeholder="Collection Name"
                 value={props.value || ''}
                 onChange={props.handleNameChange}
                 onKeyDown={props.handleNameKeyDown}
@@ -24,18 +24,26 @@ const CreateListForm = props => (
                 required
             />
             <span className={styles.buttonBox}>
-                <ButtonTooltip tooltipText="Save" position="bottom">
+                <TooltipBox
+                    tooltipText="Save"
+                    placement="bottom"
+                    getPortalRoot={null}
+                >
                     <button
                         type="submit"
                         className={cx(styles.tick, styles.button)}
                     />
-                </ButtonTooltip>
-                <ButtonTooltip tooltipText="Cancel" position="right">
+                </TooltipBox>
+                <TooltipBox
+                    tooltipText="Cancel"
+                    placement="bottom"
+                    getPortalRoot={null}
+                >
                     <button
                         onClick={props.closeCreateListForm}
                         className={cx(styles.deleteButton, styles.button)}
                     />
-                </ButtonTooltip>
+                </TooltipBox>
             </span>
         </form>
         {props.showWarning && (

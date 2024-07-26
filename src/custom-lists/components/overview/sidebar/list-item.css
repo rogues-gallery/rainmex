@@ -8,13 +8,10 @@
     position: relative;
     width: 100%;
     cursor: pointer;
+    margin: 2px 0px;
 
     &:hover {
         background-color: color8;
-
-        & .buttonContainer {
-            display: flex;
-        }
     }
 }
 
@@ -42,22 +39,34 @@
     outline: none;
 }
 
+.shareButton {
+    background-image: url('/img/share.svg');
+    width: 24px;
+    height: 24px;
+    background-position: center;
+}
+
+.shareButtonPermanent {
+    opacity: 0.6;
+}
+
+.shareButtonPermanentHover {
+    opacity: 1;
+}
+
 .editButton {
-    composes: hoverColor buttonRadiusSmall from '../../../../common-ui/colors.css';
     background-image: url('/img/edit.svg');
     width: 24px;
     height: 24px;
-    background-position-y: 4px;
-    animation: appear 0.2s forwards;
+    background-position: center;
 }
 
 .deleteButton {
-    composes: hoverColor buttonRadiusSmall from '../../../../common-ui/colors.css';
-    background-image: url('/img/trash.svg');
+    background-image: url('/img/remove.svg');
     width: 24px;
     height: 24px;
-    margin-left: 2px;
-    animation: appear 0.2s forwards;
+    background-position: center;
+    margin-left: 5px;
 }
 
 .listName {
@@ -74,10 +83,35 @@
 }
 
 .buttonContainer {
+    display: flex;
     margin-right: 5px;
     justify-content: flex-end;
     width: fit-content;
     align-items: center;
+}
+
+.unreadCount {
+    background: #e0e0e0;
+    padding: 2px 16px;
+    border-radius: 10px;
+    margin: 0 1em;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.feed {
+    width: 14px;
+    height: 14px;
+    margin-right: 1em;
+    border-radius: 10px;
+    padding: 8px;
+}
+
+.feedHasActivity {
+    background-color: #5cd9a6;
+}
+
+.feedNoActivity {
     display: none;
 }
 

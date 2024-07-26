@@ -1,4 +1,4 @@
-import { browser, Storage } from 'webextension-polyfill-ts'
+import { Storage } from 'webextension-polyfill'
 
 export interface StorageChanges {
     [key: string]: Storage.StorageChange
@@ -7,13 +7,19 @@ export interface StorageChanges {
 export type StorageAreaName = 'sync' | 'local' | 'managed'
 export type StorageKeyListener = (vals: Storage.StorageChange) => void
 
+export interface Props {
+    storage: Storage.Static
+}
+
 export class StorageChangesManager {
     private listeners: Map<StorageAreaName, Map<string, StorageKeyListener>>
+    private storage: Storage.Static
 
-    constructor() {
+    constructor({ storage }: Props) {
         this.resetListeners()
+        this.storage = storage
 
-        browser.storage.onChanged.addListener(this.handleChanges)
+        this.storage.onChanged.addListener(this.handleChanges)
     }
 
     /**
@@ -23,7 +29,11 @@ export class StorageChangesManager {
         this.listeners = new Map<
             StorageAreaName,
             Map<string, StorageKeyListener>
-        >([['sync', new Map()], ['local', new Map()], ['managed', new Map()]])
+        >([
+            ['sync', new Map()],
+            ['local', new Map()],
+            ['managed', new Map()],
+        ])
     }
 
     /**
@@ -60,7 +70,3 @@ export class StorageChangesManager {
         listener: StorageKeyListener,
     ) => this.listeners.get(areaName).set(storageKey, listener)
 }
-
-const storageChangesManager = new StorageChangesManager()
-
-export { storageChangesManager }

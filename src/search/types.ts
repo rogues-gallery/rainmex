@@ -1,15 +1,18 @@
 import Storex, { FindManyOptions } from '@worldbrain/storex'
+export * from '@worldbrain/memex-common/lib/page-indexing/types'
 
 export type DBGet = () => Promise<Storex>
 
-export type SuggestOptions = FindManyOptions & { includePks?: boolean }
+export type SuggestOptions = FindManyOptions & {
+    /** Define the name of a field to return in case suggest is being performed on a Dexie multi-entry index. */
+    multiEntryAssocField?: string
+}
 export type SuggestResult<S, P> = Array<{
     collection: string
     suggestion: S
     pk: P
 }>
 
-export type VisitInput = number
 export type BookmarkInput = number
 export type PageID = string
 export type PageScore = number
@@ -29,7 +32,7 @@ export interface SearchParams {
     startDate?: number
     skip?: number
     limit?: number
-    lists: string[]
+    lists: number[]
 }
 
 export interface FilteredIDs<T = string> {
@@ -47,52 +50,17 @@ export interface VisitInteraction {
     scrollMaxPerc: number
 }
 
-export interface PageAddRequest {
-    pageDoc: PageDoc
-    visits: VisitInput[]
-    bookmark: BookmarkInput
-    rejectNoContent?: boolean
-}
-
-export interface PageDoc {
-    content: Partial<PageContent>
-    url: string
-    favIconURI?: string
-    screenshotURI?: string
-    [extra: string]: any
-}
-
-export interface PageContent {
-    fullText: string
-    title: string
-    lang?: string
-    canonicalUrl?: string
-    description?: string
-    keywords?: string[]
-}
-
-export interface PipelineReq {
-    pageDoc: PageDoc
-    rejectNoContent?: boolean
-}
-
-export interface PipelineRes {
-    url: string
-
-    // Display data
+export interface PageCreationProps {
     fullUrl: string
-    fullTitle: string
+    tabId?: number
+    allowScreenshot?: boolean
+    visitTime?: number | '$now'
+    skipUpdatePageCount?: boolean
+    metaData?: {
+        pageTitle?: string
+    }
+}
 
-    // Indexed data
-    domain: string
-    hostname: string
-    tags: string[]
-    terms: string[]
-    urlTerms: string[]
-    titleTerms: string[]
-
-    // Misc.
-    favIconURI?: string
-    screenshotURI?: string
-    text: string
+export interface PageCreationOpts {
+    addInboxEntryOnCreate?: boolean
 }

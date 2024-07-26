@@ -1,6 +1,6 @@
-import { browser } from 'webextension-polyfill-ts'
+import browser from 'webextension-polyfill'
 
-import { injectCSS } from '../../search-injection/dom'
+import { injectCSS } from 'src/util/content-injection'
 
 const CONTAINER_CLASS = 'memex-tooltip-notification'
 

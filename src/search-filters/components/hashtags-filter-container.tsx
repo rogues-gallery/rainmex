@@ -4,8 +4,8 @@ import { RootState } from 'src/options/types'
 import { MapDispatchToProps } from 'src/util/types'
 import { actions, selectors } from 'src/search-filters'
 
-import { Tooltip } from 'src/common-ui/components'
-import { IndexDropdown } from 'src/common-ui/containers'
+import Tooltip from 'src/common-ui/components/tooltip'
+import IndexDropdown from 'src/common-ui/containers/IndexDropdown'
 import FilterButton from './filter-button'
 import { selectors as results } from 'src/overview/results'
 
@@ -42,7 +42,7 @@ type Props = StateProps & DispatchProps & OwnProps
 interface State {}
 
 class HashtagsFilter extends PureComponent<Props, State> {
-    private togglePopup: React.MouseEventHandler<HTMLButtonElement> = e => {
+    private togglePopup: React.MouseEventHandler = (e) => {
         if (this.props.env === 'inpage' && !this.props.tagFilterDropdown) {
             this.props.resetFilterPopups()
         }
@@ -66,6 +66,7 @@ class HashtagsFilter extends PureComponent<Props, State> {
                 showPopup={this.props.setHashtagFilter}
                 clearFilters={this.props.clearTagFilters}
                 disableOnClickOutside={this.props.env === 'inpage'}
+                getRootElement={null}
             >
                 {this.props.tagFilterDropdown && (
                     <Tooltip
@@ -109,20 +110,17 @@ const mapDispatchToProps: MapDispatchToProps<
     DispatchProps,
     OwnProps,
     RootState
-> = dispatch => ({
-    addIncHashtagFilter: tag => dispatch(actions.addIncHashtagFilter(tag)),
-    delIncHashtagFilter: tag => dispatch(actions.delIncHashtagFilter(tag)),
-    addExcHashtagFilter: tag => dispatch(actions.addExcHashtagFilter(tag)),
-    delExcHashtagFilter: tag => dispatch(actions.delExcHashtagFilter(tag)),
+> = (dispatch) => ({
+    addIncHashtagFilter: (tag) => dispatch(actions.addIncHashtagFilter(tag)),
+    delIncHashtagFilter: (tag) => dispatch(actions.delIncHashtagFilter(tag)),
+    addExcHashtagFilter: (tag) => dispatch(actions.addExcHashtagFilter(tag)),
+    delExcHashtagFilter: (tag) => dispatch(actions.delExcHashtagFilter(tag)),
     clearTagFilters: () => {
         dispatch(actions.setIncHashtagFilters([]))
         dispatch(actions.setExcHashtagFilters([]))
     },
-    setHashtagFilter: value => dispatch(actions.setHashtagFilter(value)),
+    setHashtagFilter: (value) => dispatch(actions.setHashtagFilter(value)),
     resetFilterPopups: () => dispatch(actions.resetFilterPopups()),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(HashtagsFilter)
+export default connect(mapStateToProps, mapDispatchToProps)(HashtagsFilter)

@@ -51,18 +51,18 @@ class ListContainer extends Component {
         this.props.getListFromDB()
     }
 
-    setInputRef = el => (this.inputEl = el)
+    setInputRef = (el) => (this.inputEl = el)
 
-    handleSearchChange = field => event => {
+    handleSearchChange = (field) => (event) => {
         const { value } = event.target
 
-        this.setState(state => ({
+        this.setState((state) => ({
             ...state,
             [field]: value,
         }))
     }
 
-    handleSearchKeyDown = (field, listName = '') => e => {
+    handleSearchKeyDown = (field, listName = '') => (e) => {
         if (
             this.props.env === 'inpage' &&
             !(e.ctrlKey || e.metaKey) &&
@@ -71,7 +71,7 @@ class ListContainer extends Component {
             e.preventDefault()
             e.stopPropagation()
 
-            this.setState(state => ({
+            this.setState((state) => ({
                 ...state,
                 [field]:
                     (state[field] !== null ? state[field] : listName) + e.key,
@@ -79,11 +79,12 @@ class ListContainer extends Component {
         }
     }
 
-    getSearchVal = value => value.trim().replace(/\s\s+/g, ' ')
+    getSearchVal = (value) => value.trim().replace(/\s\s+/g, ' ')
 
-    handleCreateListSubmit = event => {
+    handleCreateListSubmit = (event) => {
         event.preventDefault()
-        const { value } = event.target.elements['listName']
+        event.stopPropagation()
+        const { value } = event.target.elements.listName
         // value = list name
         this.props.createPageList(
             this.getSearchVal(value),
@@ -92,18 +93,20 @@ class ListContainer extends Component {
     }
 
     vacateInputField = () => {
-        this.setState(state => ({
+        this.setState((state) => ({
             ...state,
             listName: null,
         }))
     }
 
-    handleUpdateList = ({ id }, index) => event => {
+    handleUpdateList = ({ id, name: oldName }, index) => (event) => {
         event.preventDefault()
-        const { value } = event.target.elements['listName']
-        // value = list name
-        this.props.updateList(index, this.getSearchVal(value), id)
-        this.setState(state => ({
+        const { value } = event.target.elements.listName
+        const newName = this.getSearchVal(value)
+
+        this.props.updateList([oldName, newName], id)
+
+        this.setState((state) => ({
             ...state,
             updatedListName: null,
         }))
@@ -133,16 +136,19 @@ class ListContainer extends Component {
                     />
                 )
             }
+
             return (
                 <ListItem
                     key={i}
                     listName={list.name}
                     isFiltered={list.isFilterIndex}
+                    onShareButtonClick={() => {}}
                     onEditButtonClick={this.props.handleEditBtnClick(i)}
-                    onListItemClick={this.props.handleListItemClick(list, i)}
+                    onListItemClick={this.props.handleListItemClick(list)}
                     onAddPageToList={this.props.handleAddPageList(list, i)}
                     onCrossButtonClick={this.props.handleCrossBtnClick(list, i)}
                     resetUrlDragged={this.props.resetUrlDragged}
+                    isMobileList={list.isMobileList}
                 />
             )
         })
@@ -198,8 +204,8 @@ class ListContainer extends Component {
     }
 }
 
-const mapStateToProps = state => ({
-    lists: selectors.results(state),
+const mapStateToProps = (state) => ({
+    lists: selectors.createdDisplayLists(state),
     isDeleteConfShown: selectors.isDeleteConfShown(state),
     showCrowdFundingModal: selectors.showCrowdFundingModal(state),
     showCreateList: selectors.showCreateListForm(state),
@@ -219,34 +225,30 @@ const mapDispatchToProps = (dispatch, getState) => ({
         },
         dispatch,
     ),
-    handleEditBtnClick: index => event => {
+    handleEditBtnClick: (index) => (event) => {
         event.preventDefault()
         dispatch(actions.showEditBox(index))
     },
-    setShowCrowdFundingModal: value => e => {
+    setShowCrowdFundingModal: (value) => (e) => {
         e.preventDefault()
         e.stopPropagation()
         dispatch(actions.setShowCrowdFundingModal(value))
     },
-    handleCrossBtnClick: ({ id }, index) => event => {
+    handleCrossBtnClick: ({ id }, index) => (event) => {
         event.preventDefault()
         dispatch(actions.showListDeleteModal(id, index))
     },
-    handleListItemClick: ({ id }, index) => () => {
+    handleListItemClick: ({ id }) => () => {
         dispatch(sidebarActs.setSearchType('page'))
-        dispatch(actions.toggleListFilterIndex(index.toString()))
         dispatch(filterActs.toggleListFilter(id.toString()))
     },
     handleAddPageList: ({ id }, index) => (url, isSocialPost) => {
         dispatch(actions.addUrltoList(url, isSocialPost, index, id))
     },
-    handleDeleteList: e => {
+    handleDeleteList: (e) => {
         e.preventDefault()
         dispatch(actions.deletePageList())
     },
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(ListContainer)
+export default connect(mapStateToProps, mapDispatchToProps)(ListContainer)

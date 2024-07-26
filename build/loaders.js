@@ -15,6 +15,7 @@ export const eslintLoader = {
     loader: 'eslint-loader',
     options: {
         cache: true,
+        formatter: require('eslint/lib/cli-engine/formatters/stylish'),
     },
 }
 
@@ -27,10 +28,6 @@ export const tsLoader = {
     options: {
         happyPackMode: true,
     },
-}
-
-export const coffeescriptLoader = {
-    loader: 'coffeescript-loader',
 }
 
 export const injectStylesLoader = {
@@ -81,25 +78,27 @@ export default ({ mode, context, isCI = false, injectStyles = false }) => {
     const styleLoader = injectStyles ? injectStylesLoader : extractStylesLoader
 
     const main = {
-        test: /\.(j|t)sx?$/,
+        test: /\.c?(j|t)sx?$/,
         include: [
             path.resolve(context, './src'),
-            ...externalTsModules.map(mod =>
+            ...Object.values(externalTsModules).map((mod) =>
                 path.resolve(context, `./external/${mod}`),
             ),
+            // Put node modules here which use modern syntax that needs transpilation
+            path.join(context, 'node_modules/zeed-dom'),
+            path.join(context, 'node_modules/linkedom'),
         ],
         use: [babelLoader, tsLoader],
     }
 
-    const coffee = {
-        test: /\.coffee?$/,
-        include: path.resolve(context, './src/direct-linking'),
-        use: [babelLoader, coffeescriptLoader],
-    }
-
     const cssModules = {
         test: /\.css$/,
-        include: path.resolve(context, './src'),
+        include: [
+            path.resolve(context, './src'),
+            ...Object.values(externalTsModules).map((mod) =>
+                path.resolve(context, `./external/${mod}`),
+            ),
+        ],
         use: [styleLoader, cssModulesLoader, postcssLoader],
     }
 
@@ -121,17 +120,25 @@ export default ({ mode, context, isCI = false, injectStyles = false }) => {
         use: [urlLoader],
     }
 
-    if (isCI) {
-        return [main, coffee, imgLoader, cssModules, cssVanilla]
+    const ignoreLoader = {
+        test: /@firebase\/testing/,
+        use: 'null-loader',
+    }
+
+    if (mode !== 'production' && !isCI && process.env.NO_THREADS !== 'true') {
+        main.use = [threadLoader, ...main.use]
     }
 
     if (mode !== 'production') {
-        main.use = [threadLoader, ...main.use]
         cssModulesLoader.options = Object.assign(
             cssModulesLoader.options,
             localIdentName,
         )
     }
 
-    return [main, coffee, imgLoader, lint, cssModules, cssVanilla]
+    if (isCI) {
+        return [main, ignoreLoader, imgLoader, cssModules, cssVanilla]
+    }
+
+    return [main, ignoreLoader, imgLoader, lint, cssModules, cssVanilla]
 }

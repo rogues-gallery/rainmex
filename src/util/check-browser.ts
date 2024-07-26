@@ -1,7 +1,19 @@
-import { browser } from 'webextension-polyfill-ts'
-function browserIsChrome() {
+export type BrowserName = 'chrome' | 'firefox' | 'brave'
+
+/**
+ * NOTE: Does not work from the content-script.
+ */
+function checkBrowser(): BrowserName {
     // `runtime.getBrowserInfo` is only available on FF web ext API
-    return typeof browser.runtime.getBrowserInfo === 'undefined'
+    if (navigator.userAgent.includes('Firefox')) {
+        return 'firefox'
+    }
+
+    if (typeof navigator['brave']?.isBrave === 'function') {
+        return 'brave'
+    }
+
+    return 'chrome'
 }
 
-export default browserIsChrome
+export default checkBrowser

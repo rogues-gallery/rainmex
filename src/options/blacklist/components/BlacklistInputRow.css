@@ -1,5 +1,6 @@
 .cell {
-    padding: 0 !important; /* stylelint-disable-line declaration-no-important */
+    padding: 0 !important;
+    /* stylelint-disable-line declaration-no-important */
 }
 
 .newSiteInputRow {
@@ -17,6 +18,7 @@
     width: 100%;
     padding: 10px 20px;
     margin-left: 0px;
+    visibility: hidden;
 }
 
 .inputButtons {
@@ -28,11 +30,11 @@
 .blacklistButton {
     composes: CTA from 'src/common-ui/elements.css';
     border: none;
-    font-size: 14px;
+    font-size: 15px;
     outline: none;
     cursor: pointer;
     width: max-content;
-    padding: 5px 10px;
+    padding: 5px 40px;
 
     &:disabled {
         opacity: 0.5;

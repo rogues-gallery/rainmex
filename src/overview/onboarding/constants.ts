@@ -1,5 +1,10 @@
 export const ANNOTATION_DEMO_URL = 'https://en.wikipedia.org/wiki/Memex'
+export const GUIDED_ONBOARDING_URL = 'https://memex.garden/onboarding'
 export const BACKUP_URL = '/options.html#/backup'
+
+export const ONBOARDING_QUERY_PARAMS = {
+    NEW_USER: 'install',
+}
 
 /**
  * Constant to store the names of different onboarding workflows.
@@ -7,7 +12,6 @@ export const BACKUP_URL = '/options.html#/backup'
 export const FLOWS = {
     annotation: 'annotation',
     powerSearch: 'powerSearch',
-    tagging: 'tagging',
     backup: 'backup',
 }
 
@@ -16,7 +20,6 @@ export const STORAGE_KEYS = {
     onboardingFlows: {
         [FLOWS.annotation]: 'step-one-annotations',
         [FLOWS.powerSearch]: 'step-two-power-search',
-        [FLOWS.tagging]: 'step-three-tagging',
         [FLOWS.backup]: 'step-four-backup',
     },
 }

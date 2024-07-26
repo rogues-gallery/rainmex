@@ -4,14 +4,9 @@ import { remoteFunction } from 'src/util/webextensionRPC'
 import TooltipFirstCloseNotification from './notifications/tooltip-first-close'
 import RibbonFirstCloseNotification from './notifications/ribbon-first-close'
 import OnboardingHighlightText from './notifications/onboarding-highlight-text'
-import OnboardingSelectOption from './notifications/onboarding-select-option'
 import PowerSearchBrowse from './notifications/power-search-browse'
 import GoToDashboard from './notifications/go-to-dashboard'
 import TagThisPage from './notifications/tag-this-page'
-
-import { setOnboardingStage } from 'src/overview/onboarding/utils'
-import { FLOWS, STAGES } from 'src/overview/onboarding/constants'
-import { EVENT_NAMES } from 'src/analytics/internal/constants'
 
 const styles = require('./styles.css')
 
@@ -23,12 +18,11 @@ export interface Props {
 
 export class ToolbarNotification extends Component<Props> {
     openOptionsTab = remoteFunction('openOptionsTab')
-    processEventRPC = remoteFunction('processEvent')
     /**
      * Return extra styles for the container based on whether the postion prop
      * is passed or not.
      */
-    deriveContainerStyles = position => {
+    deriveContainerStyles = (position) => {
         let containerStyles
         if (position) {
             // In the use case where the notification must be displayed in a

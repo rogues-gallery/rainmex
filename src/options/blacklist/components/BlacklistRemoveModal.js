@@ -1,12 +1,13 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 
-import { ConfirmModal, ConfirmModalBtn } from 'src/common-ui/components'
+import ConfirmModalBtn from 'src/common-ui/components/ConfirmModalBtn'
+import ConfirmModal from 'src/common-ui/components/ConfirmModal'
 
 const renderMsg = ({ isLoading, matchedCount }) =>
     isLoading
         ? 'Calculating matching data...'
-        : `${matchedCount} pages found in your history. Do you want to delete them?`
+        : `Do you want to delete ${matchedCount} matching pages found in database?`
 
 const BlacklistRemoveModal = ({ onCancel, onConfirm, ...modalProps }) => (
     <ConfirmModal {...modalProps} message={renderMsg(modalProps)}>

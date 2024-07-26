@@ -4,7 +4,7 @@ import * as actionTypes from './action-types'
 import { NotifDefinition } from './types'
 
 /** Time when create the notif, get the current unix time (Date.now()) - Important, the notif insertation in db depends on it */
-const releaseTime: number = 1559735977587
+export const releaseTime: number = 1559735977587
 
 /* Example Notification:
 {
@@ -57,49 +57,13 @@ const releaseTime: number = 1559735977587
     },
 */
 
-const UPDATE_NOTIFS: NotifDefinition[] = [
-    {
-        id: 'twitter_integration-05.06.2019',
-        search: {
-            title: '🐦 New Feature: Archive, search & add notes to Tweets',
-            message:
-                'Save any tweet with one click to your Memex, and add tags, collections, notes or stars',
-            buttons: [
-                {
-                    action: {
-                        type: actionTypes.OPEN_URL,
-                        url:
-                            'https://www.notion.so/worldbrain/01ab6888f7ae4eb8815f09a8911990d8',
-                        context: 'new-tab',
-                    },
-                    label: 'Find out more',
-                },
-            ],
-        },
-        overview: {
-            title: '🐦 New Feature: Archive, search & add notes to Tweets',
-            message:
-                'Save any tweet with one click to your Memex, and add tags, collections, notes or stars',
-            buttons: [
-                {
-                    action: {
-                        type: actionTypes.OPEN_URL,
-                        url:
-                            'https://www.notion.so/worldbrain/01ab6888f7ae4eb8815f09a8911990d8',
-                        context: 'new-tab',
-                    },
-                    label: 'Find out more',
-                },
-            ],
-        },
-    },
-]
+export const UPDATE_NOTIFS: NotifDefinition[] = []
 
-interface EventNotifsDict {
+export interface EventNotifsDict {
     [name: string]: NotifDefinition
 }
 
-const EVENT_NOTIFS: EventNotifsDict = {
+export const EVENT_NOTIFS: EventNotifsDict = {
     db_error: {
         id: 'db_error',
         overview: {
@@ -149,8 +113,7 @@ const EVENT_NOTIFS: EventNotifsDict = {
                 {
                     action: {
                         type: actionTypes.OPEN_URL,
-                        url:
-                            'https://www.notion.so/worldbrain/2318f14ceeb741d6b7aa6c0ff00cb607',
+                        url: 'https://worldbrain.io/warning/browser_data_loss',
                         context: 'new-tab',
                     },
                     label: 'Find out more',
@@ -253,6 +216,81 @@ const EVENT_NOTIFS: EventNotifsDict = {
             ],
         },
     },
+    incremental_backup_down: {
+        id: 'incremental_backup_down',
+        system: {
+            title: 'Auto Backup Down',
+            message: `Your Auto Backup hasn't ran in more than 24 hours.`,
+            // buttons: [
+            //     {
+            //         action: {
+            //             type: actionTypes.OPEN_URL,
+            //             url: 'https://worldbrain.io/pricing',
+            //             context: 'self',
+            //         },
+            //         label: 'Renew Subscription',
+            //     },
+            // ],
+        },
+        overview: {
+            title: 'Auto Backup Down',
+            message: `Your Auto Backup hasn't ran in more than 24 hours. Is the Memex Backup Helper running?`,
+            // buttons: [
+            //     {
+            //         action: {
+            //             type: actionTypes.OPEN_URL,
+            //             url: 'https://worldbrain.io/pricing',
+            //             context: 'self',
+            //         },
+            //         label: 'Renew Subscription',
+            //     },
+            // ],
+        },
+    },
+    usage_survey_1: {
+        id: 'usage_survey_1',
+        search: {
+            title: 'How disappointed would you be if Memex does not exist?',
+            message: 'Take a 2-5min survey, get 1 month Memex Pro',
+            buttons: [
+                {
+                    action: {
+                        type: actionTypes.OPEN_URL,
+                        url: 'https://worldbrain.io/survey/disappointed',
+                        context: 'new-tab',
+                    },
+                    label: 'Take Survey',
+                },
+            ],
+        },
+        overview: {
+            title: 'How disappointed would you be if Memex does not exist?',
+            message:
+                'Take a 2-5min survey, get 1 month free premium and a chance to win 12 additional months.',
+            buttons: [
+                {
+                    action: {
+                        type: actionTypes.OPEN_URL,
+                        url: 'https://worldbrain.io/survey/disappointed',
+                        context: 'new-tab',
+                    },
+                    label: 'Take Survey',
+                },
+            ],
+        },
+        system: {
+            title: 'Take a 2-5min survey',
+            message: 'Get 1 month free premium and a chance to win 12 months!',
+            buttons: [
+                {
+                    action: {
+                        type: actionTypes.OPEN_URL,
+                        url: 'https://worldbrain.io/survey/disappointed',
+                        context: 'new-tab',
+                    },
+                    label: 'Take Survey',
+                },
+            ],
+        },
+    },
 }
-
-export { releaseTime, EVENT_NOTIFS, UPDATE_NOTIFS }

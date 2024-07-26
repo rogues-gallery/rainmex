@@ -1,148 +1,270 @@
-import 'babel-polyfill'
-import 'core-js/es7/symbol'
-import { registerModuleMapCollections } from '@worldbrain/storex-pattern-modules'
+import browser from 'webextension-polyfill'
 
-import { browser } from 'webextension-polyfill-ts'
+import { transformPageHTML } from '@worldbrain/memex-stemmer/lib/transform-page-html.service-worker'
 import initStorex from './search/memex-storex'
 import getDb, { setStorex } from './search/get-db'
-import internalAnalytics from './analytics/internal'
-import initSentry from './util/raven'
 import {
-    makeRemotelyCallable,
+    setupRpcConnection,
     setupRemoteFunctionsImplementations,
 } from 'src/util/webextensionRPC'
+import { StorageChangesManager } from 'src/util/storage-changes'
 
 // Features that require manual instantiation to setup
-import DirectLinkingBackground from './direct-linking/background'
-import EventLogBackground from './analytics/internal/background'
-import CustomListBackground from './custom-lists/background'
-import NotificationBackground from './notifications/background'
-import SearchBackground from './search/background'
-import * as backup from './backup/background'
-import * as backupStorage from './backup/background/storage'
-import BackgroundScript from './background-script'
-import alarms from './background-script/alarms'
-import TagsBackground from './tags/background'
-import ActivityLoggerBackground from './activity-logger/background'
-import SocialBackground from './social-integration/background'
-import BookmarksBackground from './bookmarks/background'
 import createNotification from 'src/util/notifications'
 
 // Features that auto-setup
 import './analytics/background'
 import './imports/background'
-import './omnibar'
+// import './omnibar'
 import analytics from './analytics'
+import {
+    createBackgroundModules,
+    setupBackgroundModules,
+    registerBackgroundModuleCollections,
+} from './background-script/setup'
+import { setStorageMiddleware } from './storage/middleware'
+import { getFirebase } from './util/firebase-app-initialized'
+import setupDataSeeders from 'src/util/tests/seed-data'
+import {
+    createServerStorage,
+    createServerStorageManager,
+} from './storage/server'
+import { createServices } from './services'
+import initSentry, { captureException } from 'src/util/raven'
+import { createSelfTests } from './tests/self-tests'
+import { createPersistentStorageManager } from './storage/persistent-storage'
+import { createAuthServices } from './services/local-services'
+import { SharedListRoleID } from '@worldbrain/memex-common/lib/content-sharing/types'
+import { initFirestoreSyncTriggerListener } from '@worldbrain/memex-common/lib/personal-cloud/backend/utils-mv2'
+import { setupOmnibar } from 'src/omnibar'
+import delay from './util/delay'
+import { fetchPageData } from '@worldbrain/memex-common/lib/page-indexing/fetch-page-data'
+import fetchAndExtractPdfContent from '@worldbrain/memex-common/lib/page-indexing/fetch-page-data/fetch-pdf-data.browser'
+import { CloudflareImageSupportBackend } from '@worldbrain/memex-common/lib/image-support/backend'
+import { normalizeUrl } from '@worldbrain/memex-common/lib/url-utils/normalize'
 
-initSentry()
+let __debugCounter = 0
+let __BGInitAttemptCounter = 0
+const __maxBGInitRetryAttempts = 20
 
-const storageManager = initStorex()
+export async function main(): Promise<void> {
+    __debugCounter = 0
 
-const notifications = new NotificationBackground({ storageManager })
-notifications.setupRemoteFunctions()
-
-const social = new SocialBackground({ storageManager })
-social.setupRemoteFunctions()
-
-export const directLinking = new DirectLinkingBackground({
-    storageManager,
-    socialBg: social,
-})
-directLinking.setupRemoteFunctions()
-directLinking.setupRequestInterceptor()
-
-const activityLogger = new ActivityLoggerBackground({
-    storageManager,
-})
-activityLogger.setupRemoteFunctions()
-activityLogger.setupWebExtAPIHandlers()
-
-const search = new SearchBackground({
-    storageManager,
-    tabMan: activityLogger.tabManager,
-})
-search.setupRemoteFunctions()
-
-const eventLog = new EventLogBackground({ storageManager })
-eventLog.setupRemoteFunctions()
-
-export const customList = new CustomListBackground({
-    storageManager,
-    tabMan: activityLogger.tabManager,
-    windows: browser.windows,
-})
-customList.setupRemoteFunctions()
-
-export const tags = new TagsBackground({
-    storageManager,
-    tabMan: activityLogger.tabManager,
-    windows: browser.windows,
-})
-tags.setupRemoteFunctions()
-
-export const bookmarks = new BookmarksBackground({ storageManager })
-
-const backupModule = new backup.BackupBackgroundModule({
-    storageManager,
-    lastBackupStorage: new backupStorage.LocalLastBackupStorage({
-        key: 'lastBackup',
-    }),
-    notifications,
-})
-
-backupModule.setBackendFromStorage()
-backupModule.setupRemoteFunctions()
-backupModule.startRecordingChangesIfNeeded()
-
-registerModuleMapCollections(storageManager.registry, {
-    annotations: directLinking.annotationStorage,
-    notifications: notifications.storage,
-    customList: customList.storage,
-    bookmarks: bookmarks.storage,
-    backup: backupModule.storage,
-    eventLog: eventLog.storage,
-    search: search.storage,
-    social: social.storage,
-    tags: tags.storage,
-})
-
-let bgScript: BackgroundScript
-
-storageManager.finishInitialization().then(() => {
-    setStorex(storageManager)
-    internalAnalytics.registerOperations(eventLog)
-    backupModule.storage.setupChangeTracking()
-
-    bgScript = new BackgroundScript({
-        storageManager,
-        notifsBackground: notifications,
-        loggerBackground: activityLogger,
+    const rpcManager = setupRpcConnection({
+        browserAPIs: browser,
+        sideName: 'background',
+        role: 'background',
+        paused: true,
     })
-    bgScript.setupRemoteFunctions()
-    bgScript.setupWebExtAPIHandlers()
-    bgScript.setupAlarms(alarms)
-})
+    const firebase = getFirebase()
 
-// Gradually moving all remote function registrations here
-setupRemoteFunctionsImplementations({
-    notifications: { createNotification },
-    bookmarks: {
-        addPageBookmark: search.remoteFunctions.addPageBookmark,
-        delPageBookmark: search.remoteFunctions.delPageBookmark,
-    },
-})
+    const localStorageChangesManager = new StorageChangesManager({
+        storage: browser.storage,
+    })
+    initSentry({})
 
-// Attach interesting features onto global window scope for interested users
-window['backup'] = backupModule
-window['getDb'] = getDb
-window['storageMan'] = storageManager
-window['bgScript'] = bgScript
-window['eventLog'] = eventLog
-window['directLinking'] = directLinking
-window['search'] = search
-window['customList'] = customList
-window['notifications'] = notifications
-window['analytics'] = analytics
-window['logger'] = activityLogger
-window['tabMan'] = activityLogger.tabManager
-window['socialInt'] = social
+    if (process.env.USE_FIREBASE_EMULATOR === 'true') {
+        firebase.firestore().settings({
+            host: 'localhost:8080',
+            ssl: false,
+        })
+        firebase.database().useEmulator('localhost', 9000)
+        firebase.firestore().useEmulator('localhost', 8080)
+        firebase.auth().useEmulator('http://localhost:9099/')
+        firebase.functions().useEmulator('localhost', 5001)
+        firebase.storage().useEmulator('localhost', 9199)
+    }
+
+    const serverStorageManager = createServerStorageManager()
+    const serverStorage = await createServerStorage(serverStorageManager, {
+        autoPkType: 'string',
+    })
+
+    const storageManager = initStorex()
+    const persistentStorageManager = createPersistentStorageManager({
+        idbImplementation: {
+            factory: self.indexedDB,
+            range: self.IDBKeyRange,
+        },
+    })
+    const authServices = createAuthServices({
+        backend: process.env.NODE_ENV === 'test' ? 'memory' : 'firebase',
+    })
+    const services = createServices({
+        backend: process.env.NODE_ENV === 'test' ? 'memory' : 'firebase',
+        serverStorage,
+        authService: authServices.auth,
+    })
+    __debugCounter++
+
+    const fetch = globalThis.fetch.bind(
+        globalThis,
+    ) as typeof globalThis['fetch']
+
+    const backgroundModules = createBackgroundModules({
+        manifestVersion: '2',
+        authServices,
+        services,
+        serverStorage,
+        analyticsManager: analytics,
+        localStorageChangesManager,
+        fetchPageData: async (url) =>
+            fetchPageData({
+                url,
+                fetch,
+                transformPageHTML,
+                domParser: (html) =>
+                    new DOMParser().parseFromString(html, 'text/html'),
+                opts: { includePageContent: true, includeFavIcon: true },
+            }).run(),
+        fetchPDFData: async (url) =>
+            fetchAndExtractPdfContent(url, {
+                fetch,
+                pdfJSWorkerSrc: browser.runtime.getURL('/build/pdf.worker.js'),
+            }),
+        fetch,
+        browserAPIs: browser,
+        captureException,
+        storageManager,
+        persistentStorageManager,
+        callFirebaseFunction: async <Returns>(name: string, ...args: any[]) => {
+            const callable = firebase.functions().httpsCallable(name)
+            try {
+                const result = await callable(...args)
+                return result.data as Promise<Returns>
+            } catch (err) {
+                captureException(err, {
+                    extra: {
+                        name,
+                        ...args,
+                    },
+                })
+                throw err
+            }
+        },
+        setupSyncTriggerListener: initFirestoreSyncTriggerListener(firebase),
+        imageSupportBackend: new CloudflareImageSupportBackend({
+            env:
+                process.env.NODE_ENV === 'production'
+                    ? 'production'
+                    : 'staging',
+        }),
+        backendEnv:
+            process.env.NODE_ENV === 'production' ? 'production' : 'staging',
+    })
+
+    __debugCounter++
+    registerBackgroundModuleCollections({
+        storageManager,
+        persistentStorageManager,
+        backgroundModules,
+    })
+    await storageManager.finishInitialization()
+    await persistentStorageManager.finishInitialization()
+    __debugCounter++
+    __debugCounter++
+
+    const { setStorageLoggingEnabled } = setStorageMiddleware(
+        storageManager,
+        backgroundModules,
+    )
+    __debugCounter++
+    await setupBackgroundModules(backgroundModules, storageManager, browser)
+    __debugCounter++
+
+    navigator?.storage
+        ?.persist?.()
+        .catch((err) =>
+            captureException(
+                new Error(
+                    `Error occurred on navigator.storage.persist() call: ${err.message}`,
+                ),
+            ),
+        )
+    __debugCounter++
+
+    setStorex(storageManager)
+
+    setupOmnibar({
+        bgModules: backgroundModules,
+        browserAPIs: browser,
+    })
+
+    // Gradually moving all remote function registrations here
+    setupRemoteFunctionsImplementations({
+        auth: backgroundModules.auth.remoteFunctions,
+        analytics: backgroundModules.analytics.remoteFunctions,
+        subscription: {
+            getCheckoutLink:
+                backgroundModules.auth.subscriptionService.getCheckoutLink,
+            getManageLink:
+                backgroundModules.auth.subscriptionService.getManageLink,
+            getCurrentUserClaims:
+                backgroundModules.auth.subscriptionService.getCurrentUserClaims,
+        },
+        notifications: { create: createNotification } as any,
+        bookmarks: backgroundModules.bookmarks.remoteFunctions,
+        // features: backgroundModules.features,
+        featuresBeta: backgroundModules.featuresBeta,
+        tags: backgroundModules.tags.remoteFunctions,
+        collections: backgroundModules.customLists.remoteFunctions,
+        pageActivityIndicator:
+            backgroundModules.pageActivityIndicator.remoteFunctions,
+        readablePageArchives: backgroundModules.readable.remoteFunctions,
+        copyPaster: backgroundModules.copyPaster.remoteFunctions,
+        contentSharing: backgroundModules.contentSharing.remoteFunctions,
+        personalCloud: backgroundModules.personalCloud.remoteFunctions,
+        pdf: backgroundModules.pdfBg.remoteFunctions,
+        analyticsBG: backgroundModules.analyticsBG,
+    })
+    __debugCounter++
+
+    // Attach interesting features onto global globalThis scope for interested users
+    globalThis['getDb'] = getDb
+    globalThis['storageMan'] = storageManager
+    globalThis['bgModules'] = backgroundModules
+    globalThis['serverStorage'] = serverStorage
+    globalThis['services'] = services
+    globalThis['analytics'] = analytics
+    globalThis['dataSeeders'] = setupDataSeeders(storageManager)
+    globalThis['setStorageLoggingEnabled'] = setStorageLoggingEnabled
+    globalThis['normalizeUrl'] = normalizeUrl
+
+    if (process.env.NODE_ENV === 'development') {
+        globalThis['selfTests'] = createSelfTests({
+            serverStorage,
+            storageManager,
+            backgroundModules,
+            persistentStorageManager,
+            localStorage: browser.storage.local,
+        })
+    }
+
+    rpcManager.unpause()
+    __debugCounter++
+}
+
+const handleError = async (originalError: Error) => {
+    const noMoreAttempts = __BGInitAttemptCounter++ >= __maxBGInitRetryAttempts
+
+    const error = new Error(
+        noMoreAttempts
+            ? `BG INIT LOGIC RETRIES EXHAUSTED: `
+            : `` +
+              `Error occurred during background script setup: ${originalError.message} - debug counter: ${__debugCounter}`,
+    )
+    if (originalError.stack) {
+        error.stack = originalError.stack
+    }
+    console.error('BG init logic encountered an error:', error)
+    captureException(error)
+
+    if (noMoreAttempts) {
+        throw originalError
+    }
+
+    await delay(10000)
+    await main().catch(handleError)
+}
+
+main().catch(handleError)

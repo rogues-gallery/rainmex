@@ -1,13 +1,15 @@
 import * as React from 'react'
+import { normalizeUrl } from '@worldbrain/memex-common/lib/url-utils/normalize'
 import { Page } from '../types'
-import normalizeUrl from 'src/util/encode-url-for-id'
+import browser from 'webextension-polyfill'
+import { getUnderlyingResourceUrl } from 'src/util/uri-utils'
 
 const styles = require('./page-info.css')
 
 interface Props {
     page: Page
     isCurrentPage: boolean
-    resetPage: React.MouseEventHandler<HTMLButtonElement>
+    resetPage: React.MouseEventHandler<HTMLDivElement>
 }
 
 class PageInfo extends React.Component<Props> {
@@ -15,7 +17,8 @@ class PageInfo extends React.Component<Props> {
         const { url } = this.props.page
         return (
             url &&
-            url !== normalizeUrl(window.location.href) &&
+            url !==
+                normalizeUrl(getUnderlyingResourceUrl(window.location.href)) &&
             this.props.isCurrentPage
         )
     }
@@ -27,21 +30,23 @@ class PageInfo extends React.Component<Props> {
 
     render() {
         const { url, title } = this.props.page
+        const backImg = browser.runtime.getURL('/img/back.svg')
         return (
             <React.Fragment>
                 {this.showPageInfo && (
                     <div className={styles.pageInfoDiv}>
-                        <button
+                        <div
                             className={styles.goBackBtn}
                             onClick={this.props.resetPage}
                         >
-                            Go back
-                        </button>
+                            <img src={backImg} className={styles.backButton} />
+                        </div>
                         <div className={styles.pageInfo}>
                             <a
                                 target="_blank"
                                 href={this.hrefToPage}
                                 className={styles.title}
+                                title={title}
                             >
                                 {title}
                             </a>
@@ -49,6 +54,7 @@ class PageInfo extends React.Component<Props> {
                                 target="_blank"
                                 href={this.hrefToPage}
                                 className={styles.url}
+                                title={url}
                             >
                                 {url}
                             </a>

@@ -12,14 +12,21 @@
 
     & th,
     & td {
-        padding: 15px 10px 10px 10px;
-        width: 21.5%;
+        padding: 15px 0px 10px 0px;
+        width: 15%;
         color: color4;
         font-weight: 300;
     }
 
+    & th:last-child {
+        width: 25%;
+        padding: 15px 10px 10px 10px;
+    }
+
     & th {
         font-weight: 600;
+        padding: 15px 0px 10px 0px;
+        width: 15%;
     }
 
     & td.importTableCellSepar {
@@ -29,7 +36,7 @@
     & td:first-child {
         text-align: initial;
         font-weight: 500;
-        width: 35%;
+        width: 30%;
         padding: 15px 0px 15px 15px;
     }
 
@@ -94,21 +101,21 @@
 .loadingBlocker {
     position: absolute;
     top: 0;
+    left: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 750px;
+    height: 100%;
     width: 100%;
     text-align: center;
-    padding: 0px 100px;
     z-index: 25000000;
-    background: #fbfafa;
-    opacity: 0.8;
+    background: white;
 }
 
 .loadingMsg {
-    font-weight: bold;
+    margin-top: -30px;
+    composes: sectionTitle from 'src/options/settings/components/settings.css';
 }
 
 .title {
@@ -145,14 +152,29 @@
     margin-bottom: 0px;
 }
 
+.proFeature {
+    color: #3a2f45;
+    font-size: 14px;
+    vertical-align: middle;
+    font-weight: bold;
+    float: right;
+    cursor: pointer;
+    margin-left: 15px;
+}
+
 .warning {
     display: flex;
     margin: 1em 0;
     flex-direction: row;
-    color: color12;
+    color: white;
     align-items: center;
     font-weight: 500;
     margin-top: 20px;
+    border: 2px solid color12;
+    padding: 10px 10px;
+    border-radius: 6px;
+    justify-content: center;
+    background: #f29d9d;
 }
 
 .warningText {
@@ -160,10 +182,17 @@
     position: relative;
     margin: 0;
     line-height: 22px;
+    font-size: 14px;
 }
 
 .warningCode {
     font-size: 0.8em;
+}
+
+.titleBox {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
 }
 
 .icon {
@@ -294,33 +323,31 @@
 }
 
 .showDetails {
-    color: #3eb995;
-    font-size: 12px;
-
-    &:hover {
-        cursor: pointer;
-    }
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    cursor: pointer;
 }
 
 .selectFile {
-    composes: CTA from '../../../common-ui/elements.css';
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: 500;
     cursor: pointer;
-    outline: 0;
-    border: none;
-    transition: all 0.1s ease-in;
-    vertical-align: super;
+    border: 1px solid #5671cf;
+    display: inline-block;
+    font-size: 14px;
+    color: #5671cf;
 
     &[disabled] {
-        opacity: 0.4;
+        opacity: 0;
         cursor: not-allowed;
     }
 }
 
 .hidden {
-    composes: CTA from '../../../common-ui/elements.css';
-    background: color2;
-    color: #111;
-    opacity: 0.4;
+    composes: selectFile;
+    opacity: 0;
     cursor: not-allowed;
     vertical-align: super;
 }
@@ -336,4 +363,11 @@ input[type='file'] {
     height: 25px;
     background-size: 20px;
     display: flex;
+    vertical-align: middle;
+}
+
+.uploaderBox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

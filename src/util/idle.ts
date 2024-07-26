@@ -1,4 +1,6 @@
-import { browser, Idle } from 'webextension-polyfill-ts'
+import browser, { Idle } from 'webextension-polyfill'
+
+import * as Raven from 'src/util/raven'
 
 export type IdleState = Idle.IdleState | 'locked'
 type Handler = () => Promise<void> | void
@@ -29,9 +31,11 @@ export class IdleManager {
     private runHandler = (handler: Handler) =>
         Promise.resolve(handler()).catch(this._errHandler)
 
-    private _errHandler: ErrHandler = err => {
+    private _errHandler: ErrHandler = (err) => {
         if (process.env.NODE_ENV === 'development') {
             console.error(err)
+        } else {
+            Raven.captureException(err)
         }
     }
 

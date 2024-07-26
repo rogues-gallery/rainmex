@@ -1,3 +1,5 @@
+import fs from 'fs'
+
 export function staticFilesToPatterns(filesDict = {}) {
     const patterns = []
 
@@ -7,3 +9,7 @@ export function staticFilesToPatterns(filesDict = {}) {
 
     return patterns
 }
+
+export const doesFileExist = (path) => fs.existsSync(path)
+
+export const buildingManifestV3 = process.env.MANIFEST_VERSION !== '2'

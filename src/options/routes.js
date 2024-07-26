@@ -1,71 +1,92 @@
 import ImportContainer from './imports'
-import SettingsContainer from './containers/settings'
-import BackupSettingsContainer from './backup'
-import Privacy from './privacy'
-import Statistics from './statistics'
+// import SettingsContainer from './containers/settings'
+import BackupSettingsContainer from '../backup-restore/ui/backup-pane'
 import Settings from './settings'
-import Overview from '../overview'
+import UserScreen from 'src/authentication/components/UserScreen'
+import Blocklist from './blacklist'
+import React from 'react'
+import DashboardResultsContainer from 'src/overview/components/DashboardResultsContainer'
+import BetaFeaturesSettings from 'src/beta-features/ui/containers/beta-features-settings'
+import Changelog from 'src/changelog/ui/containers/changelog'
 
 export default [
     {
-        name: 'Usage Statistics',
-        pathname: '/statistics',
-        component: Statistics,
-        hideFromSidebar: true,
-    },
-    {
-        name: 'Go back to Search',
+        name: 'Back to Dashboard',
         pathname: '/overview',
-        component: Overview,
-        icon: 'search',
+        component: (props) => <DashboardResultsContainer {...props} />,
+        icon: 'searchIcon',
         useOwnLayout: true,
     },
     {
         name: 'Settings',
         pathname: '/settings',
-        component: Settings, 
+        component: Settings,
         icon: 'settings',
     },
     {
-        name: 'Import',
+        name: 'Import & Integrations',
         pathname: '/import',
         component: ImportContainer,
-        icon: 'import',
+        icon: 'integrate',
     },
     {
-        name: 'Backup & Restore',
+        name: 'Backup',
         pathname: '/backup',
         component: BackupSettingsContainer,
-        icon: 'backup',
+        icon: 'folder',
     },
     {
         name: 'Blocklist',
         pathname: '/blocklist',
-        component: SettingsContainer,
+        component: Blocklist,
         icon: 'block',
     },
     {
-        name: 'Privacy',
-        pathname: '/privacy',
-        component: Privacy,
-        icon: 'privacy',
+        name: 'My Account',
+        pathname: '/account',
+        component: UserScreen,
+        icon: 'personFine',
     },
-    // {
-    //     name: 'Memex Team',
-    //     pathname: 'https://worldbrain.io/team',
-    //     icon: 'team',
-    //     isExternal: true,
-    // },
+
     {
-        name: 'Help',
-        pathname: 'https://worldbrain.io/help',
-        icon: 'help',
-        isExternal: true,
+        name: 'Beta Features',
+        pathname: '/betaFeatures',
+        component: BetaFeaturesSettings,
+        icon: 'stars',
     },
     {
-        name: 'Tutorial',
-        pathname: 'https://www.notion.so/worldbrain/Tutorials-fa44dcbf41654ceb910c5952b6097f8d',
-        isExternal: true,
-        icon: 'info',
+        name: 'Feedback',
+        pathname: '/feedback',
+        component: (props) => <Changelog mode="feedback" {...props} />,
+        icon: 'sadFace',
+    },
+    {
+        name: 'Changelog/Roadmap',
+        pathname: '/changelog',
+        component: (props) => <Changelog mode="changelog" {...props} />,
+        icon: 'clock',
+    },
+
+    {
+        name: 'User Account',
+        pathname: '/account',
+        icon: 'settings',
+        component: UserScreen,
+        hideFromSidebar: true,
+    },
+    {
+        name: 'User Account',
+        pathname: '/account-subscriptions',
+        icon: 'setting',
+        component: (props) => (
+            <UserScreen
+                {...props}
+                initiallyShowSubscriptionModal
+                refreshUser
+                bgScriptBG={this.props.bgScriptBG}
+                browserAPIs={browser}
+            />
+        ),
+        hideFromSidebar: true,
     },
 ]

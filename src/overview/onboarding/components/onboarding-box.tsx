@@ -1,43 +1,42 @@
 import React, { PureComponent } from 'react'
-import OnboardingChecklist from './checklist-container'
-import classNames from 'classnames'
+import styled from 'styled-components'
 
 const styles = require('./onboarding-box.css')
 
-class OnboardingBox extends PureComponent {
+export interface Props {}
+
+class OnboardingBox extends PureComponent<Props> {
     render() {
         return (
-            <React.Fragment>
-                <div className={styles.container}>
-                    <OnboardingChecklist />
-                </div>
-                <div className={styles.footer}>
-                    <div className={styles.textContainer}>
-                        <p className={styles.bold}>
-                            Import your bookmarks and existing history
-                        </p>
+            <div>
+                <FlexLayout>
+                    <div className={styles.container}>
+                        {this.props.children}
                     </div>
-                    <div className={styles.iconBox}>
-                    <span className={classNames(styles.icon, styles.pocket)}/>
-                    <span className={classNames(styles.icon, styles.diigo)}/>
-                    <span className={classNames(styles.icon, styles.chrome)}/>
-                    <span className={classNames(styles.icon, styles.firefox)}/>
-                    <span className={classNames(styles.icon, styles.raindrop)}/>
-                    <span className={classNames(styles.icon, styles.instapaper)}/>
-                    </div>
-
-                    <a
-                        className={styles.learnMore}
-                        target="_blank"
-                        href="#/import"
-                    >
-                        Import Now
-                    </a>
-                    {/* <a className={styles.settings} href="#privacy" /> */}
-                </div>
-            </React.Fragment>
+                    <div className={styles.black} />
+                </FlexLayout>
+            </div>
         )
     }
 }
+
+const FlexLayout = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* We need the white box to sit in the middle of the screen */
+    height: 100vh;
+    align-items: center;
+    overflow: hidden;
+    background-color: ${(props) => props.theme.colors.black0};
+    width: 100vw;
+    position: absolute;
+
+    * {
+        font-family: 'Satoshi', sans-serif;
+        font-feature-settings: 'pnum' on, 'lnum' on, 'case' on, 'ss03' on,
+            'ss04' on, 'liga' off;
+        letter-spacing: 0.8px;
+    }
+`
 
 export default OnboardingBox

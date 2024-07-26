@@ -1,5 +1,3 @@
-import { Thunk, Tweet } from './types'
-import { acts as tagActs } from 'src/popup/tags-button'
 import { acts as collectionActs } from 'src/popup/collections-button'
 import { remoteFunction } from 'src/util/webextensionRPC'
 import { getTweetInfo } from './observers/get-tweet-data'
@@ -12,10 +10,13 @@ const addBookmarkRPC = remoteFunction('addSocialBookmark')
 const delBookmarkRPC = remoteFunction('delSocialBookmark')
 const addTweetRPC = remoteFunction('addTweet')
 
-export const initState: (url: string) => Thunk = url => async dispatch => {
+type Thunk = any
+
+export const initState: (url: string) => Thunk = (url) => async (dispatch) => {
     try {
         const listsAssocWithPage = await fetchSocialPostLists({ url })
         const lists = await fetchAllListsRPC({
+            skipMobileList: true,
             excludeIds: listsAssocWithPage.map(({ id }) => id),
             limit: 20,
         })
@@ -25,8 +26,6 @@ export const initState: (url: string) => Thunk = url => async dispatch => {
         // Get 20 more tags that are not related related to the list.
         const pageTags = await fetchSocialPostTags({ url })
         const tags = await fetchInitTagSuggRPC(pageTags, 'tag')
-        dispatch(tagActs.setInitTagSuggests([...pageTags, ...tags]))
-        dispatch(tagActs.setTags(pageTags))
     } catch (err) {
         // Do nothing; just catch the error - means page doesn't exist for URL
     }
@@ -35,16 +34,16 @@ export const initState: (url: string) => Thunk = url => async dispatch => {
 export const toggleBookmark: (url: string, isBookmarked: boolean) => Thunk = (
     url,
     isBookmarked,
-) => async dispatch => {
+) => async (dispatch) => {
     const bookmarkRPC = isBookmarked ? delBookmarkRPC : addBookmarkRPC
     try {
         await bookmarkRPC({ url })
     } catch (err) {}
 }
 
-export const saveTweet: (
-    element: HTMLElement,
-) => Thunk = element => async dispatch => {
+export const saveTweet: (element: HTMLElement) => Thunk = (element) => async (
+    dispatch,
+) => {
     try {
         const tweet = getTweetInfo(element)
         const id = await addTweetRPC(tweet)

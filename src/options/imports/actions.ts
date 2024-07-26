@@ -3,10 +3,6 @@ import { createAction } from 'redux-act'
 import analytics from 'src/analytics'
 import { CMDS, IMPORT_CONN_NAME, IMPORT_TYPE } from './constants'
 import * as selectors from './selectors'
-import { remoteFunction } from 'src/util/webextensionRPC'
-import { EVENT_NAMES } from '../../analytics/internal/constants'
-
-const processEvent = remoteFunction('processEvent')
 
 export const filterDownloadDetails = createAction(
     'imports/filterDownloadDetails',
@@ -39,9 +35,6 @@ export const resumeImport = createAction('imports/resumeImport')
 // Adv settings mode actions
 export const setConcurrency = createAction('imports-adv/setConcurrency')
 export const setProcessErrs = createAction('imports-adv/setProcessErrs')
-export const toggleBookmarkImports = createAction(
-    'imports-adv/toggleBookmarkImports',
-)
 export const toggleIndexTitle = createAction('imports-adv/toggleIndexTitle')
 
 export const showDownloadDetails = createAction('imports/showDownloadDetails')
@@ -51,7 +44,7 @@ export const setBlobUrl = createAction('imports/setBlobUrl')
  * Responds to messages sent from background script over the runtime connection by dispatching
  * appropriate redux actions. Non-handled messages are ignored.
  */
-const getCmdMessageHandler = dispatch => ({ cmd, ...payload }) => {
+const getCmdMessageHandler = (dispatch) => ({ cmd, ...payload }) => {
     switch (cmd) {
         case CMDS.INIT:
             dispatch(initEstimateCounts(payload))
@@ -80,8 +73,8 @@ let port
 /**
  * Handles initing the imports runtime connection with the background script's batch import logic.
  */
-export const init = () => async dispatch => {
-    port = window['browser'].runtime.connect({
+export const init = () => async (dispatch) => {
+    port = globalThis['browser'].runtime.connect({
         name: IMPORT_CONN_NAME,
     })
     port.onMessage.addListener(getCmdMessageHandler(dispatch))
@@ -94,11 +87,9 @@ export const init = () => async dispatch => {
  * @param {string} cmd The command to send over runtime connection's port.
  * @param {() => void} [cb] Opt. callback to run before any dispatch.
  */
-const makePortMessagingThunk = ({
-    actionCreator,
-    cmd,
-    cb = () => {},
-}) => payload => dispatch => {
+const makePortMessagingThunk = ({ actionCreator, cmd, cb = () => {} }) => (
+    payload,
+) => (dispatch) => {
     cb()
     dispatch(actionCreator(payload))
     port.postMessage({
@@ -117,7 +108,6 @@ export const recalcEsts = () => (dispatch, getState) => {
         payload: {
             allowTypes: selectors.allowTypes(state),
             options: {
-                bookmarkImports: selectors.bookmarkImports(state),
                 indexTitle: selectors.indexTitle(state),
             },
             blobUrl: selectors.blobUrl(state),
@@ -142,11 +132,7 @@ export const stop = makePortMessagingThunk({
     cb: () => {
         analytics.trackEvent({
             category: 'Imports',
-            action: 'Cancel import',
-        })
-
-        processEvent({
-            type: EVENT_NAMES.CANCEL_IMPORT,
+            action: 'cancel',
         })
     },
 })
@@ -157,11 +143,7 @@ export const pause = makePortMessagingThunk({
     cb: () => {
         analytics.trackEvent({
             category: 'Imports',
-            action: 'Pause import',
-        })
-
-        processEvent({
-            type: EVENT_NAMES.PAUSE_IMPORT,
+            action: 'pause',
         })
     },
 })
@@ -172,11 +154,7 @@ export const resume = makePortMessagingThunk({
     cb: () => {
         analytics.trackEvent({
             category: 'Imports',
-            action: 'Resume import',
-        })
-
-        processEvent({
-            type: EVENT_NAMES.RESUME_IMPORT,
+            action: 'resume',
         })
     },
 })
@@ -187,11 +165,7 @@ export const finish = makePortMessagingThunk({
     cb: () => {
         analytics.trackEvent({
             category: 'Imports',
-            action: 'Finish import',
-        })
-
-        processEvent({
-            type: EVENT_NAMES.FINISH_IMPORT,
+            action: 'finish',
         })
     },
 })
@@ -201,13 +175,9 @@ export const start = () => (dispatch, getState) => {
 
     analytics.trackEvent({
         category: 'Imports',
-        action: 'Start import',
+        action: 'start',
         name: selectors.allowTypesString(state),
         value: selectors.concurrency(state),
-    })
-
-    processEvent({
-        type: EVENT_NAMES.START_IMPORT,
     })
 
     const allowTypes = selectors.allowTypes(state)
@@ -221,7 +191,6 @@ export const start = () => (dispatch, getState) => {
         payload: {
             allowTypes,
             options: {
-                bookmarkImports: selectors.bookmarkImports(state),
                 indexTitle: selectors.indexTitle(state),
             },
             blobUrl: selectors.blobUrl(state),

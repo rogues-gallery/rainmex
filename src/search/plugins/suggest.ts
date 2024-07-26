@@ -42,7 +42,7 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
         const db = this.backend.dexieInstance
         const applyQuery = <T, Key>(where) =>
             where
-                .startsWith(query)
+                .startsWithIgnoreCase(query)
                 .limit(limit)
                 .uniqueKeys()
                 .catch(initErrHandler([] as T[]))
@@ -65,6 +65,10 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
         }
     }
 
+    /**
+     * NOTE: This is now only used for the space picker's suggestion functionality, and has been changed to
+     *  deal with some space picker-specific stuff. Likely things won't work so nicely elsewhere
+     */
     async suggestObjects<S, P = any>({
         collection,
         query,
@@ -76,7 +80,9 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
     }) {
         const db = this.backend.dexieInstance
         // Grab first entry from the filter query; ignore rest for now
-        const [[indexName, value], ...fields] = Object.entries<string>(query)
+        const [[indexName, searchQuery], ...fields] = Object.entries<string>(
+            query,
+        )
 
         if (fields.length > 1) {
             throw new UnimplementedError(
@@ -84,20 +90,21 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
             )
         }
 
+        const distinctTerms = searchQuery.split(/\s+/).filter(Boolean)
         const whereClause = db.table<S, P>(collection).where(indexName)
 
-        let coll =
+        const shouldIgnoreCase =
             options.ignoreCase &&
             options.ignoreCase.length &&
             options.ignoreCase[0] === indexName
-                ? whereClause.startsWithIgnoreCase(value)
-                : whereClause.startsWith(value)
+
+        let coll = shouldIgnoreCase
+            ? whereClause.startsWithAnyOfIgnoreCase(distinctTerms)
+            : whereClause.startsWithAnyOf(distinctTerms)
 
         if (options.ignoreCase && options.ignoreCase[0] !== indexName) {
             throw new InvalidFindOptsError(
-                `Specified ignoreCase field '${
-                    options.ignoreCase[0]
-                }' is not in filter query`,
+                `Specified ignoreCase field '${options.ignoreCase[0]}' is not in filter query`,
             )
         }
 
@@ -107,9 +114,37 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
             coll = coll.reverse()
         }
 
-        const suggestions: any[] = await coll.uniqueKeys()
+        let suggestions: S[] = []
+        const pks: any[] = []
 
-        const pks = options.includePks ? await coll.primaryKeys() : []
+        const suggestionField = options.multiEntryAssocField ?? indexName
+
+        const lowerCaseIfNeeded = (s: string) =>
+            shouldIgnoreCase ? s.toLocaleLowerCase() : s
+
+        const suggestionIncludesAllTerms = (record: S) =>
+            distinctTerms.reduce((acc, term) => {
+                const suggestionText = record[suggestionField]
+                if (suggestionText && typeof suggestionText === 'string') {
+                    return (
+                        acc &&
+                        lowerCaseIfNeeded(suggestionText).includes(
+                            lowerCaseIfNeeded(term),
+                        )
+                    )
+                }
+                return false
+            }, true)
+
+        const records = await coll
+            .distinct()
+            .and(suggestionIncludesAllTerms)
+            .toArray()
+
+        records.forEach((record) => {
+            pks.push(record['id'])
+            suggestions.push(record[suggestionField])
+        })
 
         return suggestions.map((suggestion: S, i) => ({
             suggestion,
@@ -129,7 +164,7 @@ export class SuggestPlugin extends StorageBackendPlugin<DexieStorageBackend> {
         limit?: number
     }) {
         const db = this.backend.dexieInstance
-        const applyQuery = where =>
+        const applyQuery = (where) =>
             where
                 .noneOf(notInclude)
                 .limit(limit)

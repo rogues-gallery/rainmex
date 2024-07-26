@@ -1,0 +1,67 @@
+import * as React from 'react'
+
+import { AnnotationsSidebarContainer } from './AnnotationsSidebarContainer'
+import { SidebarContainerOptions } from 'src/sidebar/annotations-sidebar/containers/logic'
+import type { MemexTheme } from '@worldbrain/memex-common/lib/common-ui/styles/types'
+import type { ImageSupportInterface } from 'src/image-support/background/types'
+import styled from 'styled-components'
+import type { HighlightColor } from '@worldbrain/memex-common/lib/common-ui/components/highlightColorPicker/types'
+import { AnnotationsSidebarInPageEventEmitter } from '../types'
+import { EventEmitter } from 'events'
+
+type Props = SidebarContainerOptions & {
+    refSidebar?: React.Ref<AnnotationsSidebarContainer>
+    setLoginModalShown: (isShown: boolean) => void
+    setDisplayNameModalShown: (isShown: boolean) => void
+    onNotesSidebarClose?: () => void
+    theme: MemexTheme
+    imageSupport?: ImageSupportInterface<'caller'>
+    saveHighlightColor: (color, id, unifiedId) => void
+    getHighlightColorSettings: () => void
+    highlightColorSettings: HighlightColor[]
+    inPageMode?: boolean
+}
+
+export class AnnotationsSidebarInDashboardResults extends React.Component<
+    Props
+> {
+    sidebarEvents: AnnotationsSidebarInPageEventEmitter
+    static defaultProps: Partial<Props> = {
+        showGoToAnnotationBtn: true,
+        sidebarContext: 'dashboard',
+    }
+
+    constructor(props) {
+        super({
+            ...props,
+            theme: {
+                ...props.theme,
+                topOffsetPx: 60,
+            },
+        })
+        this.sidebarEvents = new EventEmitter() as AnnotationsSidebarInPageEventEmitter
+    }
+
+    render() {
+        const { refSidebar, ...props } = this.props
+
+        return (
+            <SlideInWrapper id="memex-annotations-sidebar">
+                <AnnotationsSidebarContainer
+                    {...props}
+                    theme={props.theme}
+                    ref={refSidebar}
+                    events={this.sidebarEvents}
+                />
+            </SlideInWrapper>
+        )
+    }
+}
+
+const SlideInWrapper = styled.div`
+    transition: width 200ms ease-in-out, opacity 200ms ease-in-out;
+
+    display: flex;
+    justify-content: flex-start;
+    position: relative; /* Adjust as needed */
+`

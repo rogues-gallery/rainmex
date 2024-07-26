@@ -1,13 +1,13 @@
-import { browser } from 'webextension-polyfill-ts'
+import moment from 'moment'
 import { StorageBackendPlugin } from '@worldbrain/storex'
-import { DexieStorageBackend } from '@worldbrain/storex-backend-dexie'
+import type { DexieStorageBackend } from '@worldbrain/storex-backend-dexie'
 
-import { INSTALL_TIME_KEY } from 'src/constants'
-import { AnnotSearchParams } from './types'
-import { transformUrl } from '../pipeline'
-import { Annotation } from 'src/direct-linking/types'
-import AnnotsStorage from 'src/direct-linking/background/storage'
-const moment = require('moment-timezone')
+import type { AnnotSearchParams } from './types'
+import { extractUrlParts } from '@worldbrain/memex-common/lib/url-utils/extract-parts'
+import AnnotsStorage from 'src/annotations/background/storage'
+import type { Annotation } from 'src/annotations/types'
+import type { AnnotationPrivacyLevel } from 'src/content-sharing/background/types'
+import { getAnnotationPrivacyState } from '@worldbrain/memex-common/lib/content-sharing/utils'
 
 export class AnnotationsListPlugin extends StorageBackendPlugin<
     DexieStorageBackend
@@ -99,7 +99,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
         if (tagsExc) {
             tagsForUrls = new Map(
                 [...tagsForUrls].filter(([, tags]) =>
-                    tags.some(tag => !tagsExc.has(tag)),
+                    tags.some((tag) => !tagsExc.has(tag)),
                 ),
             )
         }
@@ -107,16 +107,16 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
         if (tagsInc) {
             tagsForUrls = new Map(
                 [...tagsForUrls].filter(([, tags]) =>
-                    tags.some(tag => tagsInc.has(tag)),
+                    tags.some((tag) => tagsInc.has(tag)),
                 ),
             )
         }
 
-        return urls.filter(url => {
+        return urls.filter((url) => {
             if (!tagsInc) {
                 // Make sure current url doesn't have any excluded tag
                 const urlTags = tagsForUrls.get(url) || []
-                return urlTags.some(tag => !tagsExc.has(tag))
+                return urlTags.some((tag) => !tagsExc.has(tag))
             }
 
             return tagsForUrls.has(url)
@@ -125,45 +125,91 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
 
     private async filterByCollections(
         urls: string[],
-        params: AnnotSearchParams,
+        { collections }: AnnotSearchParams,
     ) {
-        const ids = params.collections.map(id => Number(id))
+        const dexie = this.backend.dexieInstance
+        const listsByAnnotUrl = new Map<string, number[]>()
 
-        const pageEntries = await this.backend.dexieInstance
-            .table('pageListEntries')
-            .where('listId')
-            .anyOf(ids)
-            .primaryKeys()
+        // Check if any of the filtered collections are public (require different lookups for public annotations)
+        const listMetadataIds = (await dexie
+            .table('sharedListMetadata')
+            .where('localId')
+            .anyOf(collections)
+            .primaryKeys()) as Array<number>
 
-        const pageUrls = new Set(pageEntries.map(([, url]) => url))
+        const publicCollections = collections.filter((listId) =>
+            listMetadataIds.includes(listId),
+        )
+        if (publicCollections.length > 0) {
+            const privacyLevels = (await dexie
+                .table('annotationPrivacyLevels')
+                .where('annotation')
+                .anyOf(urls)
+                .toArray()) as Array<AnnotationPrivacyLevel>
+            const publicAnnotUrls = privacyLevels
+                .filter(
+                    (level) =>
+                        getAnnotationPrivacyState(level.privacyLevel).public,
+                )
+                .map((level) => level.annotation)
 
-        return this.backend.dexieInstance
-            .table(AnnotsStorage.ANNOTS_COLL)
+            const publicAnnotations = (await dexie
+                .table(AnnotsStorage.ANNOTS_COLL)
+                .where('url')
+                .anyOf(publicAnnotUrls)
+                .toArray()) as Array<Annotation>
+
+            const pageUrlToAnnotUrls = new Map<string, string[]>()
+
+            publicAnnotations.forEach(({ url, pageUrl }) => {
+                const prev = pageUrlToAnnotUrls.get(pageUrl) ?? []
+                pageUrlToAnnotUrls.set(pageUrl, [...prev, url])
+            })
+
+            const parentPagePublicListEntries = (await dexie
+                .table('pageListEntries')
+                .where('pageUrl')
+                .anyOf([...pageUrlToAnnotUrls.keys()])
+                .and((pageListEntry) =>
+                    publicCollections.includes(pageListEntry.listId),
+                )
+                .primaryKeys()) as Array<[number, string]>
+
+            parentPagePublicListEntries.forEach(([listId, pageUrl]) => {
+                const annotUrls = pageUrlToAnnotUrls.get(pageUrl) ?? []
+                for (const annotUrl of annotUrls) {
+                    const prev = listsByAnnotUrl.get(annotUrl) ?? []
+                    listsByAnnotUrl.set(annotUrl, [...prev, listId])
+                }
+            })
+        }
+
+        const annotListEntries = (await dexie
+            .table(AnnotsStorage.LIST_ENTRIES_COLL)
             .where('url')
             .anyOf(urls)
-            .and(annot => pageUrls.has(annot.pageUrl))
-            .primaryKeys()
+            .and((annotListEntry) =>
+                collections.includes(annotListEntry.listId),
+            )
+            .primaryKeys()) as Array<[number, string]>
 
-        // IMPLEMENTATION FOR ANNOTS COLLECTIONS
-        // const [listIds, entries] = await Promise.all([
-        //     this.backend.dexieInstance
-        //         .table<any, number>(AnnotsStorage.LISTS_COLL)
-        //         .where('name')
-        //         .anyOf(params.collections)
-        //         .primaryKeys(),
-        //     this.backend.dexieInstance
-        //         .table<any, [number, string]>(AnnotsStorage.LIST_ENTRIES_COLL)
-        //         .where('url')
-        //         .anyOf(urls)
-        //         .primaryKeys(),
-        // ])
+        const urlSet = new Set<string>()
 
-        // const lists = new Set(listIds)
-        // const entryUrls = new Set(
-        //     entries
-        //         .filter(([listId]) => lists.has(listId))
-        //         .map(([, url]) => url),
-        // ))
+        annotListEntries.forEach(([listId, annotUrl]) => {
+            const prev = listsByAnnotUrl.get(annotUrl) ?? []
+            listsByAnnotUrl.set(annotUrl, [...prev, listId])
+        })
+
+        for (const [url, memberLists] of listsByAnnotUrl.entries()) {
+            if (
+                collections.length === memberLists.length &&
+                memberLists.every((listId) => collections.includes(listId))
+            ) {
+                urlSet.add(url)
+            }
+        }
+
+        return [...urlSet]
     }
 
     private async filterByDomains(
@@ -173,8 +219,8 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
         const inc = domainsInc && domainsInc.length ? new Set(domainsInc) : null
         const exc = new Set(domainsExc)
 
-        return urls.filter(url => {
-            const { domain } = transformUrl(url)
+        return urls.filter((url) => {
+            const { domain } = extractUrlParts(url)
 
             if (!inc) {
                 return !exc.has(domain)
@@ -191,10 +237,10 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
             .table(AnnotsStorage.ANNOTS_COLL)
             .where('url')
             .anyOf(urls)
-            .each(annot => annotUrlMap.set(annot.url, annot))
+            .each((annot) => annotUrlMap.set(annot.url, annot))
 
         // Ensure original order of input is kept
-        return urls.map(url => annotUrlMap.get(url))
+        return urls.map((url) => annotUrlMap.get(url))
     }
 
     private async filterResults(results: string[], params: AnnotSearchParams) {
@@ -224,17 +270,19 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
     }
 
     private async calcHardLowerTimeBound({ startDate }: AnnotSearchParams) {
-        const annotsRelease = startDate
-            ? moment(startDate)
-            : moment('2018-06-01')
+        const earliestAnnot: Annotation = await this.backend.dexieInstance
+            .table(AnnotsStorage.ANNOTS_COLL)
+            .orderBy('lastEdited')
+            .first()
 
-        const {
-            [INSTALL_TIME_KEY]: installTime,
-        } = await browser.storage.local.get(INSTALL_TIME_KEY)
+        if (
+            earliestAnnot &&
+            moment(earliestAnnot.lastEdited).isAfter(startDate || 0)
+        ) {
+            return moment(earliestAnnot.lastEdited)
+        }
 
-        return annotsRelease.isAfter(installTime)
-            ? annotsRelease
-            : moment(installTime)
+        return startDate ? moment(new Date(startDate)) : moment('2018-06-01') // The date annots feature was released
     }
 
     private mergeResults(
@@ -261,9 +309,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
         for (const annot of annots.sort(
             (a, b) => b.lastEdited.getTime() - a.lastEdited.getTime(),
         )) {
-            const date = moment(annot.lastEdited)
-                .startOf('day')
-                .toDate()
+            const date = moment(annot.lastEdited).startOf('day').toDate()
             const existing = annotsByDays.get(date.getTime()) || []
             annotsByDays.set(date.getTime(), [...existing, annot])
         }
@@ -314,13 +360,13 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
 
         if (startDate || endDate) {
             coll = coll.filter(
-                annot =>
+                (annot) =>
                     annot.lastEdited >= new Date(startDate || 0) &&
                     annot.lastEdited <= new Date(endDate || Date.now()),
             )
         }
 
-        return coll.primaryKeys()
+        return coll.primaryKeys() as Promise<string[]>
     }
 
     private async lookupTerms({
@@ -343,7 +389,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
         // Run all needed queries for each term and on each field concurrently
         for (const term of termsInc) {
             const termRes = await Promise.all(
-                fields.map(field =>
+                fields.map((field) =>
                     this.queryTermsField({ field, term }, params),
                 ),
             )
@@ -355,7 +401,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
         // Get intersection of results for all terms (all terms must match)
         const intersected = [...results.values()].reduce((a, b) => {
             const bSet = new Set(b)
-            return a.filter(res => bSet.has(res))
+            return a.filter((res) => bSet.has(res))
         })
 
         return intersected
@@ -382,7 +428,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
 
             const annots = await this.mapUrlsToAnnots(resSlice)
 
-            annots.forEach(annot => {
+            annots.forEach((annot) => {
                 seenPages.add(annot.pageUrl)
                 const prev = annotsByPage.get(annot.pageUrl) || []
 
@@ -444,9 +490,12 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
             )
 
             const filteredPks = new Set(
-                await this.filterResults(annots.map(a => a.url), params),
+                await this.filterResults(
+                    annots.map((a) => a.url),
+                    params,
+                ),
             )
-            annots = annots.filter(annot => filteredPks.has(annot.url))
+            annots = annots.filter((annot) => filteredPks.has(annot.url))
 
             this.mergeResults(results, this.clusterAnnotsByPage(annots))
         }
@@ -466,6 +515,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
         innerLimitMultiplier = AnnotationsListPlugin.DEF_INNER_LIMIT_MULTI,
     ): Promise<Annotation[]> {
         const innerLimit = limit * innerLimitMultiplier
+        let innerSkip = 0
 
         let results: string[] = []
         let continueLookup: boolean
@@ -475,6 +525,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
             let innerResults: string[] = []
 
             innerResults = await this.listWithUrl(params)
+                .offset(innerSkip)
                 .limit(innerLimit)
                 .primaryKeys()
 
@@ -483,6 +534,7 @@ export class AnnotationsListPlugin extends StorageBackendPlugin<
             innerResults = await this.filterResults(innerResults, params)
 
             results = [...results, ...innerResults]
+            innerSkip += innerLimit
         } while (continueLookup)
 
         // Cut off any excess

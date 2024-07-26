@@ -1,16 +1,17 @@
 import React from 'react'
 import PropTypes from 'prop-types'
-import { Checkbox } from 'src/common-ui/components'
+import Checkbox from 'src/common-ui/components/Checkbox'
+import styled from 'styled-components'
 
-const PrevFailedCheckbox = props => (
+const PrevFailedCheckbox = (props) => (
     <React.Fragment>
         <Checkbox
-                id="process-failed"
-                handleChange={props.onChange}
-                isChecked={props.checked}
-        >
-            <label htmlFor="process-failed">Include previously failed urls</label>
-        </Checkbox>
+            id="process-failed"
+            handleChange={props.onChange}
+            isChecked={props.checked}
+            label={'Include previously failed urls'}
+            subLabel={'Retry also urls that have previously been unsuccessful'}
+        ></Checkbox>
     </React.Fragment>
 )
 

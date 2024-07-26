@@ -1,15 +1,17 @@
 import React, { Component } from 'react'
+import styled from 'styled-components'
+
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 
-import { OutLink } from 'src/common-ui/containers'
+import OutLink from 'src/common-ui/containers/OutLink'
 import BlacklistTable from './components/BlacklistTable'
 import BlacklistRow from './components/BlacklistRow'
 import BlacklistInputRow from './components/BlacklistInputRow'
-import BlacklistRemoveModal from './components/BlacklistRemoveModal'
 import * as actions from './actions'
 import * as selectors from './selectors'
 import styles from './components/base.css'
+import SettingSection from '@worldbrain/memex-common/lib/common-ui/components/setting-section'
 
 class BlacklistContainer extends Component {
     static propTypes = {
@@ -41,9 +43,9 @@ class BlacklistContainer extends Component {
     }
 
     focusInput = () => this.input.focus()
-    assignRef = input => (this.input = input)
+    assignRef = (input) => (this.input = input)
 
-    onNewBlacklistItemAdded = event => {
+    onNewBlacklistItemAdded = (event) => {
         event.preventDefault()
         // Make sure to interpret '.' as "period" rather than "any single character", as it is common in hostnames
         // also ignore all whitespace
@@ -60,7 +62,7 @@ class BlacklistContainer extends Component {
     }
 
     // TODO(AM): Undo? Confirmation?
-    onDeleteClicked = index => () => this.props.removeFromBlacklist(index)
+    onDeleteClicked = (index) => () => this.props.removeFromBlacklist(index)
 
     onInputChange = (event = { target: {} }) => {
         const value = event.target.value || ''
@@ -84,6 +86,7 @@ class BlacklistContainer extends Component {
                 onInputChange={this.onInputChange}
                 onInputClear={resetInputVal}
                 inputRef={this.assignRef} // eslint-disable-line no-return-assign
+                renderError={this.renderError()}
                 {...props}
             />
         )
@@ -101,13 +104,11 @@ class BlacklistContainer extends Component {
     renderAddBlacklistSites = () =>
         this.props.blacklist.length ? (
             <div>
-                <p className={styles.subTitle}>
-                    List of blocked pages
-                </p>
-                <p className={styles.subText}>
-                    You are currently not logging visits on URLs that have the
-                    following text in them.
-                </p>
+                <SectionTitle>List of blocked pages</SectionTitle>
+                <InfoText>
+                    The ribbon will not open on URLs that have the following
+                    text in them.
+                </InfoText>
             </div>
         ) : (
             false
@@ -126,7 +127,7 @@ class BlacklistContainer extends Component {
         if (this.props.isInputAlreadyStored) {
             return (
                 <div className={styles.blacklistAlert}>
-                    "{this.props.inputVal}" is already blacklisted
+                    <b>Already blocked</b> "{this.props.inputVal}"
                 </div>
             )
         }
@@ -134,34 +135,35 @@ class BlacklistContainer extends Component {
 
     render() {
         return (
-            <React.Fragment>
+            <SettingSection
+                title={'Blocklist for Quick Action Ribbon'}
+                subSubTitle={'Prevent the ribbon to open on any matchin urls'}
+                icon={'block'}
+            >
                 <div>
-                    <div className={styles.subTitle}>
-                        Ignore a new domain/url:
-                    </div>
-                    {this.renderError()}
+                    <SectionTitle>Ignore a new domain/url:</SectionTitle>
+                    <InfoText />
                     {this.renderBlacklistInputRow()}
-                     <div className={styles.subText}>
-                        You can use <a href="https://regexr.com/">RegExp's</a> too!
-                    </div>
                     {this.renderAddBlacklistSites()}
                     <BlacklistTable>
                         {this.renderBlacklistRows()}
                     </BlacklistTable>
                 </div>
-                <BlacklistRemoveModal
-                    isLoading={this.props.isLoading}
-                    matchedCount={this.props.matchedDocCount}
-                    isShown={this.props.showRemoveModal}
-                    onCancel={this.props.hideModal}
-                    onConfirm={this.handleRemoveMatching}
-                />
-            </React.Fragment>
+                {/* {this.props.showRemoveModal && (
+                    <BlacklistRemoveModal
+                        isLoading={this.props.isLoading}
+                        matchedCount={this.props.matchedDocCount}
+                        isShown={this.props.showRemoveModal}
+                        onCancel={this.props.hideModal}
+                        onConfirm={this.handleRemoveMatching}
+                    />
+                )} */}
+            </SettingSection>
         )
     }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
     inputVal: selectors.siteInputValue(state),
     blacklist: selectors.normalizedBlacklist(state),
     isInputRegexInvalid: selectors.isInputRegexInvalid(state),
@@ -174,19 +176,31 @@ const mapStateToProps = state => ({
     lastValue: selectors.lastValue(state),
 })
 
-const mapDispatchToProps = dispatch => ({
+const mapDispatchToProps = (dispatch) => ({
     initBlacklist: () => dispatch(actions.initBlacklist()),
     hideModal: () => dispatch(actions.setModalShow(false)),
     resetInputVal: () => dispatch(actions.resetSiteInputValue()),
-    addToBlacklist: expression => dispatch(actions.addToBlacklist(expression)),
-    removeFromBlacklist: index => dispatch(actions.removeFromBlacklist(index)),
-    removeMatchingDocs: expression =>
+    addToBlacklist: (expression) =>
+        dispatch(actions.addToBlacklist(expression)),
+    removeFromBlacklist: (index) =>
+        dispatch(actions.removeFromBlacklist(index)),
+    removeMatchingDocs: (expression) =>
         dispatch(actions.removeMatchingDocs(expression)),
-    setInputVal: siteInputValue =>
+    setInputVal: (siteInputValue) =>
         dispatch(actions.setSiteInputValue({ siteInputValue })),
 })
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(BlacklistContainer)
+export default connect(mapStateToProps, mapDispatchToProps)(BlacklistContainer)
+
+const SectionTitle = styled.div`
+    font-size: 16px;
+    color: ${(props) => props.theme.colors.white};
+    font-weight: bold;
+`
+
+const InfoText = styled.div`
+    font-size: 14px;
+    color: ${(props) => props.theme.colors.greyScale5};
+    font-weight: 300;
+    margin-bottom: 10px;
+`

@@ -1,6 +1,12 @@
-import { STORAGE_KEYS, ANNOTATION_DEMO_URL, STAGES, FLOWS } from './constants'
+import {
+    ONBOARDING_QUERY_PARAMS,
+    ANNOTATION_DEMO_URL,
+    STORAGE_KEYS,
+    STAGES,
+    FLOWS,
+} from './constants'
 import { getLocalStorage, setLocalStorage } from 'src/util/storage'
-import { browser } from 'webextension-polyfill-ts'
+import browser from 'webextension-polyfill'
 
 /**
  * Returns the stage of the onboarding if present, else sets it to unvisited and
@@ -51,8 +57,8 @@ export const conditionallySkipToTimeFilter = async () => {
 /**
  * Check if the URL has the parameter install set to true
  */
-export const isDuringInstall = (): boolean =>
-    location.href.indexOf('install=true') > -1
+export const isDuringInstall = (loc = window.location): boolean =>
+    loc.href.includes(ONBOARDING_QUERY_PARAMS.NEW_USER)
 
 /**
  * Find the page center of the current page.

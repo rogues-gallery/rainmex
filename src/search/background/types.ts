@@ -1,21 +1,35 @@
-import { Annotation } from 'src/direct-linking/types'
-import { User } from 'src/social-integration/types'
+import type SearchStorage from './storage'
+import type { PageIndexingBackground } from 'src/page-indexing/background'
+import type { Annotation } from '@worldbrain/memex-common/lib/types/core-data-types/client'
+import type { AnnotationPrivacyLevels } from '@worldbrain/memex-common/lib/annotations/types'
+import type {
+    UnifiedSearchParams,
+    UnifiedSearchPaginationParams,
+} from '@worldbrain/memex-common/lib/search/types'
 
-export interface AnnotPage {
-    url: string
-    title?: string
-    hasBookmark: boolean
-    /** Object URL to the in-memory location of the assoc. screenshot. */
-    screenshot?: string
-    /** Object URL to the in-memory location of the assoc. fav-icon. */
-    favIcon?: string
-    displayTime?: number
-    /** Total count of annots associated with this page. (regardless of search) */
-    annotsCount: number
-    annotations: Annotation[]
-    pageId?: string
+export type SearchResultAnnotation = Annotation & {
+    lists: number[]
+    privacyLevel: AnnotationPrivacyLevels
 }
 
+export interface SearchResultPage {
+    url: string
+    fullUrl: string | null
+    fullPdfUrl?: string
+    fullTitle?: string
+    /** Object URL to the in-memory location of the assoc. fav-icon. */
+    favIcon?: string
+    displayTime: number
+    annotations: SearchResultAnnotation[]
+    totalAnnotationsCount: number
+    pageId?: string
+    lists: number[]
+    text: string
+}
+
+/**
+ * @deprecated
+ */
 export interface AnnotSearchParams {
     /** Main text to search against annot (pre-processed). */
     query?: string
@@ -23,7 +37,7 @@ export interface AnnotSearchParams {
     termsInc?: string[]
     termsExc?: string[]
     /** Collections to include (all results must be of pages in this collection). */
-    collections?: string[]
+    collections?: number[]
     /** Tags to include (all results must have these tags). */
     tagsInc?: string[]
     /** Tags to exclude (no results can have these tags). */
@@ -50,26 +64,6 @@ export interface AnnotSearchParams {
     includeDirectLinks?: boolean
     /** Denotes whether or not to return the assoc. pages with matched annots. */
     includePageResults?: boolean
-    /** If set, encodes any images as base64 strings rather than Object URL refs. */
-    base64Img?: boolean
-}
-
-export interface PageSearchParams extends AnnotSearchParams {
-    contentTypes: ContentTypes
-}
-
-export interface ContentTypes {
-    pages: boolean
-    notes: boolean
-    highlights: boolean
-}
-
-export interface UrlFilters {
-    collUrlsInc?: Set<string>
-    tagUrlsInc?: Set<string>
-    domainUrlsInc?: Set<string>
-    tagUrlsExc?: Set<string>
-    domainUrlsExc?: Set<string>
 }
 
 /**
@@ -80,45 +74,54 @@ export interface PageUrlsByDay {
     [day: number]: AnnotsByPageUrl
 }
 
-/**
- * Maps page URLs to pages containing list of annotations created/edited on that day.
- */
-export interface PagesByUrl {
-    [pageUrl: string]: AnnotPage
-}
-
 export interface AnnotsByPageUrl {
     [pageUrl: string]: Annotation[]
 }
 
-export interface SocialSearchParams extends AnnotSearchParams {
-    usersInc?: User[]
-    usersExc?: User[]
-    hashtagsInc?: string[]
-    hashtagsExc?: string[]
+export interface StandardSearchResponse {
+    resultsExhausted: boolean
+    totalCount?: number
+    docs: SearchResultPage[]
+    isBadTerm?: boolean
 }
 
-// Todo: add proper types and refactor RPC usage in-line with 'refactoring.md'
-export interface SearchBackend {
-    addPage: any
-    addPageTerms: any
-    addBookmark: any
-    delBookmark: any
-    updateTimestampMeta: any
-    addVisit: any
-    addFavIcon: any
-    delPages: any
-    delPagesByDomain: any
-    delPagesByPattern: any
-    addTag: any
-    delTag: any
-    fetchPageTags: any
-    pageHasBookmark: any
-    getPage: any
-    grabExistingKeys: any
-    search: any
-    getMatchingPageCount: any
-    domainHasFavIcon: any
-    createPageFromTab: any
-    createPageFromUrl: any
+export interface RemoteSearchInterface {
+    unifiedSearch: (
+        params: UnifiedSearchParams & UnifiedSearchPaginationParams,
+    ) => Promise<UnifiedSearchResult>
+    suggest: SearchStorage['suggest']
+    extendedSuggest: SearchStorage['suggestExtended']
+    delPages: PageIndexingBackground['delPages']
+    resolvePdfPageFullUrls: (
+        url: string,
+    ) => Promise<{
+        fullUrl: string
+        fullPdfUrl: string
+        originalLocation: string
+    }>
+}
+
+/**
+ * Note that, unlike terms search, blank search does not use the traditional pagination params.
+ * Instead it expects the caller to keep a state of the oldest search result so far
+ * (which gets returned from blank searches) and supply that as the new upper time bound
+ * for subsequent blank search pages.
+ */
+export type UnifiedBlankSearchParams = UnifiedSearchParams &
+    Pick<UnifiedSearchPaginationParams, 'limit'> & {
+        /** This is how pagination is afforded for blank search. Set to page N's `oldestResultTimestamp` to get page N+1. */
+        untilWhen: number
+        /** The time of the oldest visit/bookmark/annotation to determine results exhausted or not. */
+        lowestTimeBound: number
+    }
+
+export type UnifiedSearchResult = {
+    docs: SearchResultPage[]
+    resultsExhausted: boolean
+    oldestResultTimestamp: number
+}
+
+export type UnifiedSearchLookupData = {
+    pages: Map<string, Omit<SearchResultPage, 'annotations' | 'hasBookmark'>>
+    annotations: Map<string, SearchResultAnnotation>
 }
